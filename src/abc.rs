@@ -176,6 +176,7 @@ impl AbcReader {
         let map = unsafe { MmapOptions::new().map(&File::open(file.as_ref())?)? };
         let header = map.pread_with::<Header>(0, scroll::LE)?;
         let source = Source::new(map);
+        /// FIXME: 它不能使用 pread 方法
         source.pread(0);
         //let x = source.as_ref();
         //x.pread_with::<AbcInner>(0, scroll::LE)?;
