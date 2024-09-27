@@ -4,7 +4,6 @@ use std::{fs::File, path::Path};
 
 use crate::class::Class;
 use crate::class::ForeignClass;
-use crate::error;
 use crate::header::Header;
 use crate::lnp::LineNumberProgramIndex;
 use crate::method::Method;
@@ -17,6 +16,7 @@ use crate::region::Region;
 use crate::region::RegionHeader;
 use crate::source::Source;
 use crate::string::ABCString;
+use crate::{error, uint16_t};
 
 use super::uint32_t;
 
@@ -26,6 +26,7 @@ use scroll::Pread;
 pub struct Abc<T> {
     source: Source<T>,
     header: Header,
+    /// offset -> Class 类定义
     classes: HashMap<uint32_t, Class>,
     foreign_classes: HashMap<uint32_t, ForeignClass>,
     regions: Vec<Region>,
@@ -53,7 +54,7 @@ where
         self.parse_region();
     }
 
-    pub fn parse_class_index(&mut self) {
+    fn parse_class_index(&mut self) {
         let num_classes = self.header().num_classes() as usize;
         let class_idx_off = self.header().class_idx_off() as usize;
 
@@ -100,13 +101,27 @@ where
 
     pub fn parse_literalarray_idx(&mut self) {}
 
-    pub fn get_class_name_by_idx(&self, idx: uint32_t) -> ABCString {
+    pub fn get_class_name_by_off(&self, idx: uint32_t) -> ABCString {
         if self.is_foreign_off(idx) {
             let v = self.foreign_classes.get(&idx).unwrap();
             return v.name().clone();
         }
 
         self.classes.get(&idx).unwrap().name().clone()
+    }
+
+    /// 按索引查找类型定义，在这里找 [`ClassRegionIndex`]
+    pub fn get_field_type_by_class_idx(&self, idx: &uint16_t) -> String {
+        // FIXME: 如果 regions 有多个，我怎么知道是哪个？
+        let mut clz = String::new();
+        let idx = *idx as usize;
+        self.regions.iter().for_each(|region| {
+            let class_region_idx = region.class_region_idx();
+            let class_idx = class_region_idx.get(&idx);
+            clz = class_idx.name.clone();
+        });
+
+        clz
     }
 
     fn get_primitive_type(&self, i: uint32_t) -> FieldType {
@@ -125,7 +140,7 @@ where
             return self.get_primitive_type(idx);
         }
 
-        let item = self.get_class_name_by_idx(idx).to_string();
+        let item = self.get_class_name_by_off(idx).to_string();
         FieldType { name: item }
     }
 

@@ -94,6 +94,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Method {
                 0x01 => {
                     let code_off = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
+                    // TODO: 解析代码？
                     println!("CODE {:?}", code_off);
                 }
                 0x02 => {

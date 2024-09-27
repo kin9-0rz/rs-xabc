@@ -32,7 +32,7 @@ pub struct RegionHeader {
 /// 存放类型，如果不是基础类型，那么就是一个指向Class的偏移量
 //pub type FieldType = uint32_t;
 
-#[derive(Debug, CopyGetters, Getters)]
+#[derive(Debug, CopyGetters, Getters, Default)]
 #[get = "pub"]
 pub struct FieldType {
     // TODO: 如果类的数量特别多的话，会不会重复占用内存？
@@ -46,8 +46,7 @@ impl fmt::Display for FieldType {
     }
 }
 
-#[derive(Debug, Getters, Default)]
-#[get = "pub"]
+#[derive(Debug, Default)]
 pub struct ClassRegionIndex {
     // 一个数组，数组中每个元素都是Type类型。
     offsets: Vec<FieldType>,
@@ -56,6 +55,11 @@ pub struct ClassRegionIndex {
 impl ClassRegionIndex {
     pub fn push(&mut self, field_type: FieldType) {
         self.offsets.push(field_type);
+    }
+
+    /// xxxx
+    pub fn get(&self, idx: &usize) -> &FieldType {
+        &self.offsets[*idx]
     }
 }
 
@@ -100,7 +104,6 @@ impl ProtoRegionIndex {
 pub struct Region {
     header: RegionHeader,
     /// 通过索引找到类型 FieldType
-    // class_region_idx: Vec<FieldType>,
     class_region_idx: ClassRegionIndex,
     /// 找到对应的方法、字符串或者字面量数组。
     method_string_literal_region_idx: MethodStringLiteralRegionIndex,
@@ -128,5 +131,9 @@ impl Region {
     /// 数据是否在这个区域内
     pub fn is_here(&self, off: usize) -> bool {
         self.header.start_off() as usize <= off && off < self.header.end_off() as usize
+    }
+
+    pub fn get_class_region_idx(&self, idx: usize) -> &FieldType {
+        self.class_region_idx.get(&idx)
     }
 }

@@ -23,7 +23,7 @@ impl<T> Clone for Source<T> {
     /// 浅拷贝
     fn clone(&self) -> Self {
         Self {
-            // NOTE: 不会创建 T 的数据副本
+            // 不会创建 T 的数据副本
             inner: self.inner.clone(),
         }
     }

@@ -175,17 +175,3 @@ impl ClassAccessFlags {
         access_flags
     }
 }
-
-/// ClassIndex 结构旨在允许运行时按名称快速查找类型定义。
-#[derive(Debug, Getters)]
-#[get = "pub"]
-pub struct ClassIndex {
-    /// 指向 Class 或 ForeignClass
-    offsets: Vec<uint32_t>,
-}
-
-impl ClassIndex {
-    pub fn push(&mut self, offset: uint32_t) {
-        self.offsets.push(offset);
-    }
-}

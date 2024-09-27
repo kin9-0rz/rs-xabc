@@ -33,7 +33,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Field {
         let access_flags = FieldAccessFlag::parse(access_flags);
 
         // 解析 field_data
-        // NOTE: 数据保存
+        // TODO: 数据保存
         'l: loop {
             let tag_value = source.pread::<uint8_t>(*off).unwrap();
             *off += 1;
