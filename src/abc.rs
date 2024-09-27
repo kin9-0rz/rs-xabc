@@ -6,6 +6,7 @@ use crate::class::Class;
 use crate::class::ForeignClass;
 use crate::error;
 use crate::header::Header;
+use crate::lnp::LineNumberProgramIndex;
 use crate::method::Method;
 use crate::region::ClassRegionIndex;
 use crate::region::FieldRegionIndex;
@@ -15,7 +16,7 @@ use crate::region::ProtoRegionIndex;
 use crate::region::Region;
 use crate::region::RegionHeader;
 use crate::source::Source;
-use crate::str::ABCString;
+use crate::string::ABCString;
 
 use super::uint32_t;
 
@@ -55,6 +56,8 @@ where
     pub fn parse_class_index(&mut self) {
         let num_classes = self.header().num_classes() as usize;
         let class_idx_off = self.header().class_idx_off() as usize;
+
+        // 一次性解析所有的Class
         for i in 0..num_classes {
             let off = class_idx_off + i * 4;
             let class_idx_off = self.source.as_ref().pread::<uint32_t>(off).unwrap();
@@ -79,7 +82,21 @@ where
         }
     }
 
-    pub fn parse_lnp_idx(&mut self) {}
+    pub fn parse_lnp_idx(&mut self) {
+        // NOTE: 解析行号程序，未来再说。
+        let mut lnp_idx = LineNumberProgramIndex::default();
+        let num_lnp = self.header().num_lnps() as usize;
+        let lnp_off = self.header().lnp_idx_off() as usize;
+        for i in 0..num_lnp {
+            let offset = self
+                .source
+                .as_ref()
+                .pread::<uint32_t>(lnp_off + i * 4)
+                .unwrap();
+
+            lnp_idx.push(offset);
+        }
+    }
 
     pub fn parse_literalarray_idx(&mut self) {}
 
@@ -112,6 +129,14 @@ where
         FieldType { name: item }
     }
 
+    pub fn get_string_by_off(&self, off: uint32_t) -> String {
+        self.source
+            .as_ref()
+            .pread::<ABCString>(off as usize)
+            .unwrap()
+            .str()
+    }
+
     /// 解析Region
     pub fn parse_region(&mut self) {
         for i in 0..self.header().region_size() as usize {
@@ -122,7 +147,6 @@ where
             let mut class_region_idx = ClassRegionIndex::default();
             let class_idx_off = region_header.class_idx_off() as usize;
             for i in 0..region_header.class_idx_size() as usize {
-                println!("{}", i);
                 let off = class_idx_off + i * 4;
 
                 // 一个FiedType 大小是u32

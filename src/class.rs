@@ -1,4 +1,6 @@
-use crate::{error, str::ABCString, uint32_t};
+use crate::field::Field;
+use crate::uint8_t;
+use crate::{error, string::ABCString, uint32_t};
 use getset::Getters;
 use scroll::ctx;
 use scroll::Pread;
@@ -26,13 +28,12 @@ pub struct Class {
     #[get = "pub"]
     name: ABCString,
     supper_class: String,
+    /// 类的访问标志
     access_flags: Vec<String>,
     num_fields: u64,
     num_methods: u64,
-    // TODO: ClassData
-    //class_data: Vec<TaggedValue>,
-
-    // NOTE: 下面这2个在这里无法获得，只能从索引区域获得。
+    // class_data: Vec<TaggedValue>,
+    fields: Vec<Field>,
     //fields: Vec<Field>,
     //methods: Vec<Method>,
 }
@@ -60,9 +61,59 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
         let num_fields = Uleb128::read(source, off).unwrap();
         let num_methods = Uleb128::read(source, off).unwrap();
 
-        // TODO: 需要解析剩余的数据。
+        // let mut offset = *off;
+
         // TODO: ClassData
-        // TODO: Fields
+        'l: loop {
+            print!("{} ", *off);
+            let tag_value = source.pread::<uint8_t>(*off).unwrap();
+            *off += 1;
+            println!(" -> {} ", *off);
+            match tag_value {
+                0x00 => {
+                    println!("NOTHING: exit\n");
+                    break 'l;
+                }
+                0x01 => {
+                    println!("INTERFACES");
+                }
+                0x02 => {
+                    let data = source.pread::<uint8_t>(*off).unwrap();
+                    *off += 1;
+                    print!("SOURCE_LANG -> {}", data);
+                }
+                0x03 => {
+                    println!("RUNTIME_ANNOTATION");
+                }
+                0x04 => {
+                    println!("ANNOTATION");
+                }
+                0x05 => {
+                    println!("RUNTIME_TYPE_ANNOTATION");
+                }
+                0x06 => {
+                    println!("TYPE_ANNOTATION");
+                }
+                0x07 => {
+                    println!("SOURCE_FILE");
+                }
+                _ => {
+                    println!("Error! -> UNKNOWN: {}", tag_value);
+                    break 'l;
+                }
+            }
+        }
+
+        let mut offset = *off;
+        let mut fields = Vec::new();
+        for _ in 0..num_fields {
+            let field = source.pread::<Field>(offset).unwrap();
+            println!("{:?}", field);
+            let size = *field.size();
+            offset += size;
+            fields.push(field);
+        }
+
         // TODO: Methods
 
         Ok((
@@ -72,6 +123,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
                 access_flags,
                 num_fields,
                 num_methods,
+                fields,
             },
             source.len(),
         ))
@@ -114,7 +166,7 @@ impl ClassAccessFlags {
             }
         }
 
-        return access_flags;
+        access_flags
     }
 }
 
@@ -122,7 +174,12 @@ impl ClassAccessFlags {
 #[derive(Debug, Getters)]
 #[get = "pub"]
 pub struct ClassIndex {
-    /// 数组长度; 由 `Header` 的 num_classes 指定。
-    num: u8,
+    /// 指向 Class 或 ForeignClass
     offsets: Vec<uint32_t>,
+}
+
+impl ClassIndex {
+    pub fn push(&mut self, offset: uint32_t) {
+        self.offsets.push(offset);
+    }
 }

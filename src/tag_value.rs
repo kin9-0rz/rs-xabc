@@ -1,4 +1,7 @@
-use crate::uint8_t;
+use getset::Getters;
+use scroll::ctx;
+
+use crate::{error, uint8_t};
 
 enum ClassTag {
     /// 拥有此标记的TaggedValue，是其所在class_data的最后一项。
@@ -32,6 +35,7 @@ enum FieldTag {
 }
 
 /// Field, Method, Class，都会包含一个 data 字段，数据类型是 TaggedValue[]。
+#[derive(Debug, Getters)]
 pub struct TaggedValue {
     tag_value: uint8_t,
     /// 数据的长度，取决于 tag_value 的值。
@@ -39,3 +43,22 @@ pub struct TaggedValue {
 }
 
 // TODO: 根据 Tag 类型，读取数据。
+// * 如果是ClassTag，则使用ClassTag的方式
+
+pub struct ClassTaggedValue {
+    tag_value: ClassTag,
+    data: Vec<uint8_t>,
+}
+
+impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for ClassTaggedValue {
+    type Error = error::Error;
+    fn try_from_ctx(source: &'a [u8], _: scroll::Endian) -> Result<(Self, usize), Self::Error> {
+        Ok((
+            ClassTaggedValue {
+                tag_value: ClassTag::Nothing,
+                data: Vec::new(),
+            },
+            source.len(),
+        ))
+    }
+}

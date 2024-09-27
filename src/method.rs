@@ -2,7 +2,7 @@ use getset::Getters;
 use scroll::Uleb128;
 
 use crate::error;
-use crate::str::ABCString;
+use crate::string::ABCString;
 use crate::tag_value::TaggedValue;
 use crate::uint16_t;
 use crate::uint32_t;

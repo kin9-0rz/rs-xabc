@@ -2,27 +2,19 @@ use rs_xabc::abc::AbcReader;
 
 fn main() {
     println!("Hello, world!");
-    //let path = "/Users/lyb/DevEcoStudioProjects/Healthy_life/entry/build/default/outputs/default/ets/modules.abc";
-    //let mut abc = AbcReader::from_file(path).unwrap();
-    //
+    let path = "/Users/lyb/DevEcoStudioProjects/Healthy_life/entry/build/default/outputs/default/ets/modules.abc";
+    let mut abc = AbcReader::from_file(path).unwrap();
     let mut abc = AbcReader::from_file("fixtures/demo.abc").unwrap();
     abc.parse();
 
-    let header = abc.header();
-    println!("{}", header);
-
     for cls in abc.classes() {
-        println!("{:?}", cls);
-    }
+        println!("-> {:?}", cls.0);
 
-    for r in abc.regions() {
-        println!("{:?}", r.header());
-
-        let class_region_idx = r.class_region_idx();
-        for item in class_region_idx.offsets() {
-            println!("{}", item);
+        for field in cls.1.fields() {
+            println!("{:?}", field);
+            let name_off = field.name_off();
+            let x = abc.get_string_by_off(*name_off);
+            println!("{:?}", x);
         }
-
-        println!("{:?}", r.method_string_literal_region_idx().offsets());
     }
 }
