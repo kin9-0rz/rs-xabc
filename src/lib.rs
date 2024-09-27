@@ -2,9 +2,11 @@ pub mod abc;
 pub mod class;
 mod error;
 pub mod field;
-pub mod index;
+pub mod header;
 pub mod method;
+pub mod region;
 pub mod source;
+pub mod str;
 pub mod tag_value;
 
 use scroll::{Sleb128, Uleb128};

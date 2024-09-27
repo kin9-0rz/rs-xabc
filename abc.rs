@@ -187,8 +187,8 @@ impl ABCReader {
             println!("Offset: {:?}", offset);
         }
 
-        file.seek(io::SeekFrom::Start(offsets[0].value as u64))?;
-        println!("当前偏移: {}", file.stream_position()?);
+        //file.seek(io::SeekFrom::Start(offsets[0].value as u64))?;
+        //println!("当前偏移: {}", file.stream_position()?);
         // TODO 读取一个类；
         // TODO 读取一个uleb128_t类型的数据
         //uleb128_t::read(&mut file).unwrap();
