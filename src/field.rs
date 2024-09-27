@@ -5,7 +5,7 @@ use scroll::Sleb128;
 use scroll::Uleb128;
 
 use crate::uint8_t;
-use crate::{error, tag_value::TaggedValue, uint16_t, uint32_t};
+use crate::{error, uint16_t, uint32_t};
 
 #[derive(Debug, Getters, Default)]
 #[get = "pub"]
@@ -17,7 +17,7 @@ pub struct Field {
     name_off: uint32_t,
     /// 它的值必须是 AccessFlag 的组合。
     access_flags: Vec<String>,
-    field_data: Vec<TaggedValue>,
+    // field_data: Vec<TaggedValue>,
     size: usize,
 }
 
@@ -31,18 +31,12 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Field {
         let off = &mut 8;
         let access_flags = Uleb128::read(source, off).unwrap();
         let access_flags = FieldAccessFlag::parse(access_flags);
-        println!("{}", class_idx);
-        println!("{}", type_idx);
-        println!("{}", name_off);
-        println!("access_flags: {:?}", access_flags);
-        println!("off: {:?}", off);
 
         // 解析 field_data
+        // NOTE: 数据保存
         'l: loop {
-            println!("{} ", *off);
             let tag_value = source.pread::<uint8_t>(*off).unwrap();
             *off += 1;
-            println!(" -> {} ", *off);
             match tag_value {
                 0x00 => {
                     println!("NOTHING");
@@ -93,7 +87,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Field {
                 type_idx,
                 name_off,
                 access_flags,
-                field_data: Vec::new(),
+                // field_data: Vec::new(),
                 size,
             },
             source.len(),

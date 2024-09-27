@@ -1,4 +1,5 @@
 use crate::field::Field;
+use crate::method::Method;
 use crate::uint8_t;
 use crate::{error, string::ABCString, uint32_t};
 use getset::Getters;
@@ -34,8 +35,7 @@ pub struct Class {
     num_methods: u64,
     // class_data: Vec<TaggedValue>,
     fields: Vec<Field>,
-    //fields: Vec<Field>,
-    //methods: Vec<Method>,
+    methods: Vec<Method>,
 }
 
 impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
@@ -108,13 +108,18 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
         let mut fields = Vec::new();
         for _ in 0..num_fields {
             let field = source.pread::<Field>(offset).unwrap();
-            println!("{:?}", field);
             let size = *field.size();
             offset += size;
             fields.push(field);
         }
 
-        // TODO: Methods
+        let mut methods = Vec::new();
+        for _ in 0..num_methods {
+            let method = source.pread::<Method>(offset).unwrap();
+            let size = *method.size();
+            offset += size;
+            methods.push(method);
+        }
 
         Ok((
             Class {
@@ -124,6 +129,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
                 num_fields,
                 num_methods,
                 fields,
+                methods,
             },
             source.len(),
         ))

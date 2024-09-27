@@ -2,8 +2,6 @@ use getset::Getters;
 use scroll::Uleb128;
 
 use crate::error;
-use crate::string::ABCString;
-use crate::tag_value::TaggedValue;
 use crate::uint16_t;
 use crate::uint32_t;
 use crate::uint8_t;
@@ -58,27 +56,102 @@ impl MethodAccessFlags {
     }
 }
 
-#[derive(Debug, Getters)]
+#[derive(Debug, Getters, Default)]
 #[get = "pub"]
 pub struct Method {
-    name: String,
+    class_idx: uint16_t,
+    proto_idx: uint16_t,
+    /// 名字的偏移量，指向一个 String
+    name_off: uint32_t,
+    /// 它的值必须是 AccessFlag 的组合。
     access_flags: Vec<String>,
+    // method_data: Vec,
+    size: usize,
 }
 
 impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Method {
     type Error = error::Error;
     fn try_from_ctx(source: &'a [u8], _: scroll::Endian) -> Result<(Self, usize), Self::Error> {
-        println!(" {:?}", &source[0..2]);
-        let mut off = 0;
         let class_idx = source.pread::<uint16_t>(0).unwrap();
-        println!("Method -> class_idx: {}", class_idx);
-        //let name = source.pread::<ABCString>(class_idx as usize).unwrap();
-        //println!("Method -> name: {}", name);
+        let proto_idx = source.pread::<uint16_t>(2).unwrap();
+        let name_off = source.pread::<uint32_t>(4).unwrap();
+
+        let off = &mut 8;
+        let access_flags = Uleb128::read(source, off).unwrap();
+        let access_flags = MethodAccessFlags::parse(access_flags);
+
+        // 解析 method_data
+        // NOTE: 数据保存
+        'l: loop {
+            let tag_value = source.pread::<uint8_t>(*off).unwrap();
+            *off += 1;
+
+            match tag_value {
+                0x00 => {
+                    println!("NOTHING");
+                    break 'l;
+                }
+                0x01 => {
+                    let code_off = source.pread::<uint32_t>(*off).unwrap();
+                    *off += 4;
+                    println!("CODE {:?}", code_off);
+                }
+                0x02 => {
+                    let data = source.pread::<uint8_t>(*off).unwrap();
+                    *off += 1;
+                    println!("SOURCE_LANG {:?}", data);
+                }
+                0x03 => {
+                    let data = source.pread::<uint32_t>(*off).unwrap();
+                    *off += 4;
+                    println!("RUNTIME_ANNOTATION {:?}", data);
+                }
+                0x04 => {
+                    let data = source.pread::<uint32_t>(*off).unwrap();
+                    *off += 4;
+                    println!("RUNTIME_ANNOTATION_ANNOTATION {:?}", data);
+                }
+                0x05 => {
+                    let data = source.pread::<uint32_t>(*off).unwrap();
+                    *off += 4;
+                    println!("DEBUG_INFO {:?}", data);
+                }
+                0x06 => {
+                    let data = source.pread::<uint32_t>(*off).unwrap();
+                    *off += 4;
+                    println!("ANNOTATION {:?}", data);
+                }
+                0x07 => {
+                    let data = source.pread::<uint32_t>(*off).unwrap();
+                    *off += 4;
+                    println!("PARAM_ANNOTATION {:?}", data);
+                }
+                0x08 => {
+                    let data = source.pread::<uint32_t>(*off).unwrap();
+                    *off += 4;
+                    println!("TYPE_ANNOTATION {:?}", data);
+                }
+                0x09 => {
+                    let data = source.pread::<uint32_t>(*off).unwrap();
+                    *off += 4;
+                    println!("RUNTIME_TYPE_ANNOTATION {:?}", data);
+                }
+                _ => {
+                    println!("UNKNOWN");
+                }
+            }
+        }
+
+        let size = *off;
 
         Ok((
             Method {
-                name: String::new(),
-                access_flags: Vec::new(),
+                class_idx,
+                proto_idx,
+                name_off,
+                access_flags,
+                // method_data: Vec::new(),
+                size,
             },
             source.len(),
         ))

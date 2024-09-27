@@ -19,4 +19,5 @@ impl LineNumberProgramIndex {
 /// 行号程序由指令组成。每条指令都有一个字节的操作码和可选参数。
 /// 根据 opcode 参数的值可能被编码到指令中，或者指令需要从常量池中读取值。
 // NOTE: 不知道有啥作用，先不处理。
+#[allow(dead_code)]
 struct LineNumberProgram {}

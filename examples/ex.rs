@@ -8,11 +8,16 @@ fn main() {
     abc.parse();
 
     for cls in abc.classes() {
-        println!("-> {:?}", cls.0);
+        // println!("-> {:?}", cls.0);
 
-        for field in cls.1.fields() {
-            println!("{:?}", field);
-            let name_off = field.name_off();
+        // let field = &cls.1.fields()[0];
+        // let name_off = field.name_off();
+        // let x = abc.get_string_by_off(*name_off);
+        // println!("Field -> {:?}", x);
+
+        for method in cls.1.methods() {
+            println!("{:?}", method);
+            let name_off = method.name_off();
             let x = abc.get_string_by_off(*name_off);
             println!("{:?}", x);
         }

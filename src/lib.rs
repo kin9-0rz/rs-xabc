@@ -8,7 +8,6 @@ pub mod method;
 pub mod region;
 pub mod source;
 pub mod string;
-pub mod tag_value;
 
 use scroll::{Sleb128, Uleb128};
 
