@@ -2,7 +2,6 @@ use getset::CopyGetters;
 use std::fmt;
 
 use super::uint32_t;
-use super::uint8_t;
 
 use scroll::Pread;
 
@@ -12,11 +11,11 @@ use scroll::Pread;
 #[get_copy = "pub"]
 pub struct Header {
     /// 文件头魔数，值必须是'P' 'A' 'N' 'D' 'A' '\0' '\0' '\0'。
-    magic: [uint8_t; 8],
+    magic: [u8; 8],
     /// 字节码文件除文件头魔数和本校验字段之外的内容的 adler32 校验和。
-    checksum: [uint8_t; 4],
+    checksum: [u8; 4],
     /// 字节码文件的版本号 (Version) 。
-    version: [uint8_t; 4],
+    version: [u8; 4],
     /// 字节码文件的大小，以字节为单位。
     file_size: uint32_t,
     /// 一个偏移量，指向外部区域。外部区域中仅包含类型为 ForeignClass 或ForeignMethod的元素。foreign_off指向该区域的第一个元素。

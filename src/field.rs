@@ -4,7 +4,6 @@ use scroll::Pread;
 use scroll::Sleb128;
 use scroll::Uleb128;
 
-use crate::uint8_t;
 use crate::{error, uint16_t, uint32_t};
 
 #[derive(Debug, Getters, Default)]
@@ -35,7 +34,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Field {
         // 解析 field_data
         // TODO: 数据保存
         'l: loop {
-            let tag_value = source.pread::<uint8_t>(*off).unwrap();
+            let tag_value = source.pread::<u8>(*off).unwrap();
             *off += 1;
             match tag_value {
                 0x00 => {

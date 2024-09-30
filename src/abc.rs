@@ -4,6 +4,7 @@ use std::{fs::File, path::Path};
 
 use crate::class::Class;
 use crate::class::ForeignClass;
+use crate::code::Code;
 use crate::header::Header;
 use crate::lnp::LineNumberProgramIndex;
 use crate::method::Method;
@@ -14,7 +15,7 @@ use crate::region::MethodStringLiteralRegionIndex;
 use crate::region::ProtoRegionIndex;
 use crate::region::Region;
 use crate::region::RegionHeader;
-use crate::source::Source;
+use crate::source::{self, Source};
 use crate::string::ABCString;
 use crate::{error, uint16_t};
 
@@ -23,7 +24,7 @@ use super::uint32_t;
 use scroll::Pread;
 
 /// 对外暴露的接口
-pub struct Abc<T> {
+pub struct AbcFile<T> {
     source: Source<T>,
     header: Header,
     /// offset -> Class 类定义
@@ -32,7 +33,7 @@ pub struct Abc<T> {
     regions: Vec<Region>,
 }
 
-impl<T> Abc<T>
+impl<T> AbcFile<T>
 where
     T: AsRef<[u8]>,
 {
@@ -52,6 +53,22 @@ where
         self.parse_header();
         self.parse_class_index();
         self.parse_region();
+        self.parse_code();
+    }
+
+    pub fn parse_code(&mut self) {
+        for item in self.classes.values() {
+            for method in item.methods().iter() {
+                let data = method.method_data();
+                let code_off = data.code_off();
+                let code = self
+                    .source
+                    .as_ref()
+                    .pread::<Code>(*code_off as usize)
+                    .unwrap();
+                println!("{} -> {:?}", code_off, code);
+            }
+        }
     }
 
     fn parse_class_index(&mut self) {
@@ -257,13 +274,13 @@ pub struct AbcReader {}
 impl AbcReader {
     /// Try to read a `Dex` from the given path, returns error if
     /// the file is not a dex or in case of I/O errors
-    pub fn from_file<P: AsRef<Path>>(file: P) -> Result<Abc<Mmap>, error::Error> {
+    pub fn from_file<P: AsRef<Path>>(file: P) -> Result<AbcFile<Mmap>, error::Error> {
         let map = unsafe { MmapOptions::new().map(&File::open(file.as_ref())?)? };
         //let header = map.pread_with::<Header>(0, scroll::LE)?;
         let source = Source::new(map);
         //let region_index = RegionIndex::new(source.clone(), header.region_size, header.region_off);
 
-        Ok(Abc {
+        Ok(AbcFile {
             source: source.clone(),
             header: Header::default(),
             classes: HashMap::new(),

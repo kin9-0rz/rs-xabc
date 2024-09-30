@@ -1,6 +1,6 @@
 use crate::field::Field;
 use crate::method::Method;
-use crate::uint8_t;
+
 use crate::{error, string::ABCString, uint32_t};
 use getset::Getters;
 use scroll::ctx;
@@ -66,7 +66,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
         // TODO: ClassData
         'l: loop {
             print!("{} ", *off);
-            let tag_value = source.pread::<uint8_t>(*off).unwrap();
+            let tag_value = source.pread::<u8>(*off).unwrap();
             *off += 1;
             println!(" -> {} ", *off);
             match tag_value {
@@ -78,7 +78,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
                     println!("INTERFACES");
                 }
                 0x02 => {
-                    let data = source.pread::<uint8_t>(*off).unwrap();
+                    let data = source.pread::<u8>(*off).unwrap();
                     *off += 1;
                     print!("SOURCE_LANG -> {}", data);
                 }

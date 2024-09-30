@@ -1,10 +1,13 @@
 use getset::Getters;
 use scroll::Uleb128;
 
+use crate::code::Code;
 use crate::error;
+use crate::method;
 use crate::uint16_t;
 use crate::uint32_t;
 use crate::uint8_t;
+
 use scroll::ctx;
 use scroll::Pread;
 
@@ -58,6 +61,21 @@ impl MethodAccessFlags {
 
 #[derive(Debug, Getters, Default)]
 #[get = "pub"]
+pub struct MethodData {
+    /// 指向方法的 Code 对象的偏移量。
+    code_off: uint32_t,
+    source_lang: uint8_t,
+    runtime_annotation_off: uint32_t,
+    runtime_param_annotation_off: uint32_t,
+    debug_info_off: uint32_t,
+    annotation_off: uint32_t,
+    param_annotation_off: uint32_t,
+    type_annotation_off: uint32_t,
+    runtime_type_annotation_off: uint32_t,
+}
+
+#[derive(Debug, Getters, Default)]
+#[get = "pub"]
 pub struct Method {
     class_idx: uint16_t,
     proto_idx: uint16_t,
@@ -67,6 +85,7 @@ pub struct Method {
     access_flags: Vec<String>,
     // method_data: Vec,
     size: usize,
+    method_data: MethodData,
 }
 
 impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Method {
@@ -81,9 +100,11 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Method {
         let access_flags = MethodAccessFlags::parse(access_flags);
 
         // 解析 method_data
+
+        let mut method_data = MethodData::default();
         // NOTE: 数据保存
         'l: loop {
-            let tag_value = source.pread::<uint8_t>(*off).unwrap();
+            let tag_value = source.pread::<u8>(*off).unwrap();
             *off += 1;
 
             match tag_value {
@@ -94,51 +115,60 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Method {
                 0x01 => {
                     let code_off = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
-                    // TODO: 解析代码？
                     println!("CODE {:?}", code_off);
+                    method_data.code_off = code_off;
                 }
                 0x02 => {
-                    let data = source.pread::<uint8_t>(*off).unwrap();
+                    let data = source.pread::<u8>(*off).unwrap();
                     *off += 1;
                     println!("SOURCE_LANG {:?}", data);
+                    method_data.source_lang = data;
                 }
                 0x03 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
                     println!("RUNTIME_ANNOTATION {:?}", data);
+                    method_data.runtime_annotation_off = data;
                 }
                 0x04 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
-                    println!("RUNTIME_ANNOTATION_ANNOTATION {:?}", data);
+                    println!("RUNTIME_PARAM_ANNOTATION {:?}", data);
+                    method_data.runtime_param_annotation_off = data;
                 }
                 0x05 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
                     println!("DEBUG_INFO {:?}", data);
+                    method_data.debug_info_off = data;
                 }
                 0x06 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
                     println!("ANNOTATION {:?}", data);
+                    method_data.annotation_off = data;
                 }
                 0x07 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
                     println!("PARAM_ANNOTATION {:?}", data);
+                    method_data.param_annotation_off = data;
                 }
                 0x08 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
                     println!("TYPE_ANNOTATION {:?}", data);
+                    method_data.type_annotation_off = data;
                 }
                 0x09 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
                     println!("RUNTIME_TYPE_ANNOTATION {:?}", data);
+                    method_data.runtime_type_annotation_off = data;
                 }
                 _ => {
-                    println!("UNKNOWN");
+                    println!("Method Data: UNKNOWN 0x{:02X}", tag_value);
+                    // FIXME: 这种情况是不可能出现，一定有问题。
                 }
             }
         }
@@ -151,7 +181,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Method {
                 proto_idx,
                 name_off,
                 access_flags,
-                // method_data: Vec::new(),
+                method_data,
                 size,
             },
             source.len(),

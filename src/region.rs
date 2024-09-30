@@ -57,7 +57,6 @@ impl ClassRegionIndex {
         self.offsets.push(field_type);
     }
 
-    /// xxxx
     pub fn get(&self, idx: &usize) -> &FieldType {
         &self.offsets[*idx]
     }
