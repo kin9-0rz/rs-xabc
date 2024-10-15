@@ -1,4 +1,5 @@
 pub mod abc;
+pub mod bytecode;
 pub mod class;
 pub mod code;
 mod error;

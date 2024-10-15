@@ -1,7 +1,7 @@
 use getset::Getters;
 use scroll::{ctx, Uleb128};
 
-use crate::{error, uint32_t};
+use crate::error;
 
 #[derive(Debug, Getters, Default)]
 #[get = "pub"]
@@ -102,6 +102,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Code {
 
         let instructions = source[*off..*off + code_size as usize].to_vec();
         *off += code_size as usize;
+        // TODO: 指令翻译
 
         let try_blocks = (0..tries_size)
             .map(|_| TryBlock::try_from_ctx(source, scroll::Endian::Little))

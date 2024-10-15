@@ -2,6 +2,7 @@ use memmap2::{Mmap, MmapOptions};
 use std::collections::HashMap;
 use std::{fs::File, path::Path};
 
+use crate::bytecode::BytecodeMap;
 use crate::class::Class;
 use crate::class::ForeignClass;
 use crate::code::Code;
@@ -15,7 +16,7 @@ use crate::region::MethodStringLiteralRegionIndex;
 use crate::region::ProtoRegionIndex;
 use crate::region::Region;
 use crate::region::RegionHeader;
-use crate::source::{self, Source};
+use crate::source::Source;
 use crate::string::ABCString;
 use crate::{error, uint16_t};
 
@@ -45,6 +46,7 @@ where
         &self.regions
     }
 
+    // TODO: 获取所以的类名
     pub fn classes(&self) -> &HashMap<uint32_t, Class> {
         &self.classes
     }
@@ -56,9 +58,28 @@ where
         self.parse_code();
     }
 
+    // TODO: 解析字节码
+    pub fn asm_code(&mut self) {
+        // Code 里面有存放指令/字节码的数组，需要解析
+        // 如果解析，怎么存放？
+        // 需要看常见的用途
+        //
+        todo!()
+    }
+
     pub fn parse_code(&mut self) {
         for item in self.classes.values() {
+            let class_name = item.name().str();
+            // if class_name != "Lcom.example.myapplication/entry/ets/entryability/EntryAbility;" {
+            //     continue;
+            // }
+
             for method in item.methods().iter() {
+                let name = self.get_string_by_off(*method.name_off());
+                // if name != "onCreate" {
+                //     continue;
+                // }
+                println!("{} -> {}", class_name, name);
                 let data = method.method_data();
                 let code_off = data.code_off();
                 let code = self
@@ -67,6 +88,9 @@ where
                     .pread::<Code>(*code_off as usize)
                     .unwrap();
                 println!("{} -> {:?}", code_off, code);
+
+                let bytecode_map = BytecodeMap::new();
+                bytecode_map.parse(&code);
             }
         }
     }

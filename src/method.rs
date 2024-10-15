@@ -1,9 +1,7 @@
 use getset::Getters;
 use scroll::Uleb128;
 
-use crate::code::Code;
 use crate::error;
-use crate::method;
 use crate::uint16_t;
 use crate::uint32_t;
 use crate::uint8_t;
