@@ -29,9 +29,14 @@ pub struct AbcFile<T> {
     source: Source<T>,
     header: Header,
     /// offset -> Class 类定义
+    // offset 可以确定 Region 范围
     classes: HashMap<uint32_t, Class>,
     foreign_classes: HashMap<uint32_t, ForeignClass>,
     regions: Vec<Region>,
+    /// TODO: StringMap (offset: String)
+    string_map: HashMap<uint32_t, ABCString>,
+    /// TODO: Method Map (offset: String)
+    method_map: HashMap<usize, String>,
 }
 
 impl<T> AbcFile<T>
@@ -46,7 +51,36 @@ where
         &self.regions
     }
 
-    // TODO: 获取所以的类名
+    /// 获取所有的类名
+    // TODO: 使用lru_cache，已经获取过，则不再重复获取
+    pub fn get_classes_name(&self) -> Vec<String> {
+        let mut class_names = Vec::new();
+        for clz in self.classes.values() {
+            let class_name = clz.name().str();
+            class_names.push(class_name);
+        }
+        class_names
+    }
+
+    fn init_method_map(&mut self) {
+        for clz in self.classes.values() {
+            for (offset, method) in clz.method_map().iter() {
+                let name = self.get_string_by_off(*method.name_off());
+                self.method_map.insert(*offset as usize, name);
+            }
+        }
+    }
+
+    /// 获取所有的方法名
+    // pub fn get_methods_name(&self) -> Vec<String> {}
+
+    /// 获取所有的字符串
+    pub fn get_strings(&self) -> String {
+        // TODO: 从 Field 中获取
+        // TODO: 从 Method 中获取
+        todo!()
+    }
+
     pub fn classes(&self) -> &HashMap<uint32_t, Class> {
         &self.classes
     }
@@ -56,29 +90,42 @@ where
         self.parse_class_index();
         self.parse_region();
         self.parse_code();
+        println!("StringID{} -> {:?}", 4429, self.get_string_by_off(4429));
+        println!("StringID{} -> {:?}", 1087, self.get_string_by_off(1087));
+        println!("LiteralID{} -> {:?}", 5550, self.get_string_by_off(5550));
+        println!("LiteralID{} -> {:?}", 4821, self.get_string_by_off(4821));
     }
 
-    // TODO: 解析字节码
-    pub fn asm_code(&mut self) {
-        // Code 里面有存放指令/字节码的数组，需要解析
-        // 如果解析，怎么存放？
-        // 需要看常见的用途
-        //
-        todo!()
+    fn get_region(&self, offset: usize) -> Option<&Region> {
+        let mut result: Option<&Region> = None;
+        for one in self.regions.iter() {
+            let is_it = one.is_here(offset);
+            if is_it {
+                result = Some(one);
+                break;
+            }
+        }
+
+        result
     }
 
     pub fn parse_code(&mut self) {
-        for item in self.classes.values() {
-            let class_name = item.name().str();
-            // if class_name != "Lcom.example.myapplication/entry/ets/entryability/EntryAbility;" {
-            //     continue;
-            // }
+        for item in &self.classes {
+            let offset = item.0;
+            let region = self.get_region(*offset as usize).unwrap();
+            let clazz = item.1;
 
-            for method in item.methods().iter() {
+            let class_name = clazz.name().str();
+            if class_name
+                != "Lcom.example.myapplication/entry/ets/entrybackupability/EntryBackupAbility;"
+            {
+                continue;
+            }
+            for method in clazz.methods().iter() {
                 let name = self.get_string_by_off(*method.name_off());
-                // if name != "onCreate" {
-                //     continue;
-                // }
+                if name != "func_main_0" {
+                    continue;
+                }
                 println!("{} -> {}", class_name, name);
                 let data = method.method_data();
                 let code_off = data.code_off();
@@ -90,11 +137,13 @@ where
                 println!("{} -> {:?}", code_off, code);
 
                 let bytecode_map = BytecodeMap::new();
-                bytecode_map.parse(&code);
+                // TODO: 解析字节码的时候，它可以访问 Region，这样才用可能获取数据。
+                bytecode_map.parse(&code, region, self.source.as_ref());
             }
         }
     }
 
+    /// 解析 Class
     fn parse_class_index(&mut self) {
         let num_classes = self.header().num_classes() as usize;
         let class_idx_off = self.header().class_idx_off() as usize;
@@ -199,7 +248,7 @@ where
             let off = self.header().region_off() as usize + i * 4;
             let region_header = self.source.as_ref().pread::<RegionHeader>(off).unwrap();
 
-            // NOTE: 解析 ClassRegionIndex
+            // 解析 ClassRegionIndex
             let mut class_region_idx = ClassRegionIndex::default();
             let class_idx_off = region_header.class_idx_off() as usize;
             for i in 0..region_header.class_idx_size() as usize {
@@ -213,6 +262,7 @@ where
                     .unwrap();
 
                 let f = self.parse_field_type(class_offset);
+                println!("{} -> {:?}", off, &f);
                 class_region_idx.push(f);
             }
 
@@ -223,9 +273,16 @@ where
                 let offset = self
                     .source
                     .as_ref()
-                    .pread_with::<uint32_t>(msl_off + i * 4, scroll::LE)
+                    .pread::<uint32_t>(msl_off + i * 4)
                     .unwrap();
                 mslr_idx.push(offset);
+                // NOTE: 存放的是偏移地址，但是，这个偏移地址的内容是啥，不知道。
+                // 只有解析代码的时候，才知道。
+                println!("{} -> {}", i, offset);
+                // println!("{} -> {:?}", offset, self.get_string_by_off(offset));
+
+                // FIXME: 这个 Region 里面有3类数据，怎么区分？
+                // 难道是实时，解析？
             }
 
             // 解析 FieldRegionIndex
@@ -276,18 +333,7 @@ where
         start <= class_idx && class_idx <= end
     }
 
-    /// 获取所有的字符串
-    pub fn strings(&self) -> Vec<String> {
-        todo!()
-    }
-
-    /// 获取所有的方法
-    pub fn methods(&self) -> Vec<Method> {
-        todo!()
-    }
-
     fn parse_header(&mut self) {
-        //let header = map.pread_with::<Header>(0, scroll::LE)?;
         self.header = self.source.as_ref().pread::<Header>(0).unwrap();
     }
 }
@@ -300,16 +346,15 @@ impl AbcReader {
     /// the file is not a dex or in case of I/O errors
     pub fn from_file<P: AsRef<Path>>(file: P) -> Result<AbcFile<Mmap>, error::Error> {
         let map = unsafe { MmapOptions::new().map(&File::open(file.as_ref())?)? };
-        //let header = map.pread_with::<Header>(0, scroll::LE)?;
         let source = Source::new(map);
-        //let region_index = RegionIndex::new(source.clone(), header.region_size, header.region_off);
-
         Ok(AbcFile {
             source: source.clone(),
             header: Header::default(),
             classes: HashMap::new(),
             foreign_classes: HashMap::new(),
             regions: Vec::new(),
+            string_map: HashMap::new(),
+            method_map: HashMap::new(),
         })
     }
 

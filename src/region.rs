@@ -72,6 +72,10 @@ impl MethodStringLiteralRegionIndex {
     pub fn push(&mut self, offset: uint32_t) {
         self.offsets.push(offset);
     }
+
+    pub fn get(&self, idx: &usize) -> &uint32_t {
+        &self.offsets[*idx]
+    }
 }
 
 #[derive(Debug, Getters, Default)]
@@ -132,7 +136,12 @@ impl Region {
         self.header.start_off() as usize <= off && off < self.header.end_off() as usize
     }
 
-    pub fn get_class_region_idx(&self, idx: usize) -> &FieldType {
+    pub fn get_class_name(&self, idx: usize) -> &FieldType {
         self.class_region_idx.get(&idx)
+    }
+
+    /// 根据索引获取它的偏移量
+    pub fn get_msl_offset(&self, idx: usize) -> &uint32_t {
+        self.method_string_literal_region_idx.get(&idx)
     }
 }

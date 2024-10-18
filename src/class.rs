@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::field::Field;
 use crate::method::Method;
 
@@ -25,6 +27,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for ForeignClass {
 #[derive(Debug, Getters)]
 #[get = "pub"]
 pub struct Class {
+    offset: usize,
     /// 类名
     #[get = "pub"]
     name: ABCString,
@@ -35,7 +38,8 @@ pub struct Class {
     num_methods: u64,
     // class_data: Vec<TaggedValue>,
     fields: Vec<Field>,
-    methods: Vec<Method>,
+    // methods: Vec<Method>,
+    method_map: HashMap<usize, Method>,
 }
 
 impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
@@ -113,23 +117,29 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
             fields.push(field);
         }
 
-        let mut methods = Vec::new();
+        // let mut methods = Vec::new();
+        let mut method_map = HashMap::new();
         for _ in 0..num_methods {
+            // TODO: 记录这个offset，并且保存起来，未来建立一个 map
             let method = source.pread::<Method>(offset).unwrap();
+            method_map.insert(offset, method);
+
             let size = *method.size();
             offset += size;
-            methods.push(method);
+            // methods.push(method);
         }
 
         Ok((
             Class {
+                offset,
                 name,
                 supper_class,
                 access_flags,
                 num_fields,
                 num_methods,
                 fields,
-                methods,
+                // methods,
+                method_map,
             },
             source.len(),
         ))

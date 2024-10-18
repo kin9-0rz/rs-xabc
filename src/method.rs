@@ -75,10 +75,12 @@ pub struct MethodData {
 #[derive(Debug, Getters, Default)]
 #[get = "pub"]
 pub struct Method {
+    /// 类的索引
     class_idx: uint16_t,
     proto_idx: uint16_t,
     /// 名字的偏移量，指向一个 String
     name_off: uint32_t,
+
     /// 它的值必须是 AccessFlag 的组合。
     access_flags: Vec<String>,
     // method_data: Vec,

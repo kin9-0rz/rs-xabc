@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use getset::Getters;
 use scroll::Pread;
 
-use crate::code::Code;
+use crate::{abc::AbcFile, code::Code, method::Method, region::Region, source, string::ABCString};
 
 // https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-bytecode-fundamentals-V5#字节码格式说明
 /// 格式组成的基本单元
@@ -78,7 +78,13 @@ impl ByteCodeFormat {
         size
     }
 
-    pub fn parse(&self, instructions: &Vec<u8>, offset: usize) -> usize {
+    pub fn parse(
+        &self,
+        instructions: &Vec<u8>,
+        offset: usize,
+        region: &Region,
+        source: &[u8],
+    ) -> usize {
         let mut offset = offset;
         let opcode_name = self.name.split_whitespace().collect::<Vec<&str>>()[0];
         let mut strx = format!("{} ", opcode_name);
@@ -118,26 +124,52 @@ impl ByteCodeFormat {
                     offset += 2;
                     strx += &format!("v{} ", data);
                 }
+                // NOTE: 这个是索引，不是偏移
                 FormatUnit::LiteralID => {
-                    let data = instructions.pread_with::<u16>(offset, scroll::BE).unwrap();
+                    let data = instructions.pread_with::<u16>(offset, scroll::LE).unwrap();
                     raw += &format!("{:04X}", data);
                     offset += 2;
-                    strx += &format!("LiteralID@{} ", data);
+                    strx += &format!("LiteralID@{} ", region.get_msl_offset(data as usize));
+
                     // TODO: 找到对应的数组
                 }
                 FormatUnit::StringID => {
-                    let data = instructions.pread_with::<u16>(offset, scroll::BE).unwrap();
+                    let data = instructions.pread_with::<u16>(offset, scroll::LE).unwrap();
                     raw += &format!("{:04X}", data);
                     offset += 2;
-                    strx += &format!("StringID@{} ", data);
-                    // TODO: 找到对应的字符串
+
+                    let string_offset = region.get_msl_offset(data as usize);
+                    let x = source
+                        .as_ref()
+                        .pread::<ABCString>(*string_offset as usize)
+                        .unwrap()
+                        .str();
+                    println!("{}", x);
+                    strx += &x.to_string();
                 }
                 FormatUnit::MethodID => {
-                    let data = instructions.pread_with::<u16>(offset, scroll::BE).unwrap();
+                    let data = instructions.pread_with::<u16>(offset, scroll::LE).unwrap();
                     raw += &format!("{:04X}", data);
                     offset += 2;
-                    strx += &format!("MethodID@{} ", data);
+                    let method_offset = region.get_msl_offset(data as usize);
                     // TODO: 找到对应的方法
+                    // TODO: 这里已经解析过一次了，没必要再次解析。
+                    // 最好是直接根据之前解析的情况，找到对应的值
+                    let x = source
+                        .as_ref()
+                        .pread::<Method>(*method_offset as usize)
+                        .unwrap();
+                    // TODO: 这里重新解析一次，完全没有必要
+                    let x = source
+                        .as_ref()
+                        .pread::<ABCString>(*x.name_off() as usize)
+                        .unwrap()
+                        .str();
+                    println!("{}", x);
+                    // strx += &format!("MethodID@{} ", method_offset);
+
+                    strx += &x.to_string();
+                    strx += " ";
                 }
                 FormatUnit::Imm4Imm4 => {
                     let data = instructions.pread::<u8>(offset).unwrap();
@@ -1565,19 +1597,147 @@ fn init_opcode_map() -> HashMap<u16, ByteCodeFormat> {
             ),
         ),
         // 0xd1 	IMM16_ID16_V8 	stsuperbyname RRRR, @AAAA, vBB
+        (
+            0xd1,
+            ByteCodeFormat::new(
+                "stsuperbyname".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RRRR,
+                    FormatUnit::StringID,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xd2 	IMM16_V8_V8 	stownbyvaluewithnameset RRRR, vAA, vBB
+        (
+            0xd2,
+            ByteCodeFormat::new(
+                "stownbyvaluewithnameset".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RRRR,
+                    FormatUnit::V8,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xd3 	ID16 	ldbigint @AAAA 	A：string id 	基于索引A对应的字符串，创建BigInt类型的值，并将其存放到acc中。
+        (
+            0xd3,
+            ByteCodeFormat::new(
+                "ldbigint".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::StringID],
+            ),
+        ),
         // 0xd4 	IMM16_ID16_V8 	stownbynamewithnameset RRRR, @AAAA, vBB
+        (
+            0xd4,
+            ByteCodeFormat::new(
+                "stownbynamewithnameset".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RRRR,
+                    FormatUnit::StringID,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xd5 	NONE 	nop 		无操作。
+        (
+            0xd5,
+            ByteCodeFormat::new("nop".to_owned(), vec![FormatUnit::Opcode]),
+        ),
         // 0xd6 	IMM8 	setgeneratorstate +AA
+        (
+            0xd6,
+            ByteCodeFormat::new(
+                "setgeneratorstate".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::IMM8],
+            ),
+        ),
         // 0xd7 	IMM8 	getasynciterator RR
+        (
+            0xd7,
+            ByteCodeFormat::new(
+                "getasynciterator".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::RR],
+            ),
+        ),
         // 0xd8 	IMM8_IMM16_IMM16 	ldprivateproperty RR, +AAAA, +BBBB
+        (
+            0xd8,
+            ByteCodeFormat::new(
+                "ldprivateproperty".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RR,
+                    FormatUnit::IMM16,
+                    FormatUnit::IMM16,
+                ],
+            ),
+        ),
         // 0xd9 	IMM8_IMM16_IMM16_V8 	stprivateproperty RR, +AAAA, +BBBB, vCC
+        (
+            0xd9,
+            ByteCodeFormat::new(
+                "stprivateproperty".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RR,
+                    FormatUnit::IMM16,
+                    FormatUnit::IMM16,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xda 	IMM8_IMM16_IMM16 	testin RR, +AAAA, +BBBB
+        (
+            0xda,
+            ByteCodeFormat::new(
+                "testin".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RR,
+                    FormatUnit::IMM16,
+                    FormatUnit::IMM16,
+                ],
+            ),
+        ),
         // 0xdb 	IMM8_ID16_V8 	definefieldbyname RR, @AAAA, vBB
+        (
+            0xdb,
+            ByteCodeFormat::new(
+                "definefieldbyname".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RR,
+                    FormatUnit::StringID,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xfb 	PREF_NONE 	callruntime.notifyconcurrentresult 	默认入参：acc：并发函数的返回值
-        // 0xfc 	(deprecated) 			（弃用的操作码）
+        (
+            0xfb,
+            ByteCodeFormat::new(
+                "callruntime.notifyconcurrentresult".to_owned(),
+                vec![FormatUnit::PrefixOpcode],
+            ),
+        ),
         // 0xfd 	PREF_IMM16_V8_V8 	wide.createobjectwithexcludedkeys +AAAA, vBB, vCC
+        (
+            0xfd,
+            ByteCodeFormat::new(
+                "wide.createobjectwithexcludedkeys".to_owned(),
+                vec![
+                    FormatUnit::PrefixOpcode,
+                    FormatUnit::IMM16,
+                    FormatUnit::V8,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xfe 	PREF_NONE 	throw 	默认入参：acc：异常 	抛出acc中存放的异
         (
             0xfe,
@@ -1688,15 +1848,112 @@ fn init_prefix_opcode_map() -> HashMap<u16, ByteCodeFormat> {
             ),
         ),
         // 0x05fb 	PREF_IMM8_IMM_16_IMM_16_V8 	callruntime.defineprivateproperty RR, +AAAA, +BBBB, vCC
+        (
+            0x05fb,
+            ByteCodeFormat::new(
+                "callruntime.defineprivateproperty".to_owned(),
+                vec![
+                    FormatUnit::PrefixOpcode,
+                    FormatUnit::RR,
+                    FormatUnit::IMM16,
+                    FormatUnit::IMM16,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0x05fd 	PREF_IMM16_V8 	wide.callthisrange +AAAA, vBB
+        (
+            0x05fd,
+            ByteCodeFormat::new(
+                "wide.callthisrange".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16, FormatUnit::V8],
+            ),
+        ),
         // 0x05fb 	PREF_IMM8_IMM_16_IMM_16_V8 	callruntime.defineprivateproperty RR, +AAAA, +BBBB, vCC
+        (
+            0x05fe,
+            ByteCodeFormat::new(
+                "throw.ifnotobject".to_owned(),
+                vec![
+                    FormatUnit::PrefixOpcode,
+                    FormatUnit::RR,
+                    FormatUnit::IMM16,
+                    FormatUnit::IMM16,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0x05fd 	PREF_IMM16_V8 	wide.callthisrange +AAAA, vBB
+        (
+            0x05fd,
+            ByteCodeFormat::new(
+                "wide.callthisrange".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16, FormatUnit::V8],
+            ),
+        ),
         // 0x05fe 	PREF_V8 	throw.ifnotobject vAA 	A：对象 	如果A不是一个对象，抛出异常。
+        (
+            0x05fe,
+            ByteCodeFormat::new(
+                "throw.ifnotobject".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::V8],
+            ),
+        ),
         // 0x06fb 	PREF_IMM8_V8 	callruntime.callinit +RR, vAA
+        (
+            0x06fb,
+            ByteCodeFormat::new(
+                "callruntime.callinit".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::RR, FormatUnit::V8],
+            ),
+        ),
         // 0x06fd 	PREF_IMM16_V8 	wide.supercallthisrange +AAAA, vBB
+        (
+            0x06fd,
+            ByteCodeFormat::new(
+                "wide.supercallthisrange".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16, FormatUnit::V8],
+            ),
+        ),
+        // 0x06fd 	PREF_IMM16_V8 	wide.supercallthisrange +AAAA, vBB
+        (
+            0x06fe,
+            ByteCodeFormat::new(
+                "throw.undefinedifhole".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16, FormatUnit::V8],
+            ),
+        ),
         // 0x06fe 	PREF_V8_V8 	throw.undefinedifhole vAA, vBB
+        (
+            0x06fe,
+            ByteCodeFormat::new(
+                "throw.undefinedifhole".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::V8, FormatUnit::V8],
+            ),
+        ),
         // 0x07fb 	PREF_IMM16_ID16_ID16_IMM16_V8 	callruntime.definesendableclass RRRR, @AAAA, @BBBB, +CCCC, vDD
+        (
+            0x07fb,
+            ByteCodeFormat::new(
+                "callruntime.definesendableclass".to_owned(),
+                vec![
+                    FormatUnit::PrefixOpcode,
+                    FormatUnit::RRRR,
+                    FormatUnit::MethodID,
+                    FormatUnit::LiteralID,
+                    FormatUnit::IMM16,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0x07fd 	PREF_IMM16_V8 	wide.supercallarrowrange +AAAA, vBB
+        (
+            0x07fd,
+            ByteCodeFormat::new(
+                "wide.supercallarrowrange".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16, FormatUnit::V8],
+            ),
+        ),
         // 0x07fe 	PREF_IMM8 	throw.ifsupernotcorrectcall +AA
         (
             0x07fe,
@@ -1705,10 +1962,38 @@ fn init_prefix_opcode_map() -> HashMap<u16, ByteCodeFormat> {
                 vec![FormatUnit::PrefixOpcode, FormatUnit::IMM8],
             ),
         ),
-        // 0x08fb 	PREF_IMM16 	callruntime.ldsendableclass +AAAA 	A：词法环境层级 	将A个层次外的词法环境的sendable class存放到acc中。
+        // 0x08fb 	PREF_IMM16 	callruntime.ldsendableclass +AAAA
+        (
+            0x08fb,
+            ByteCodeFormat::new(
+                "callruntime.ldsendableclass".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16],
+            ),
+        ),
         // 0x08fd 	PREF_IMM32 	wide.ldobjbyindex +AAAAAAAA
+        (
+            0x08fd,
+            ByteCodeFormat::new(
+                "wide.ldobjbyindex".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM32],
+            ),
+        ),
         // 0x08fe 	PREF_IMM16 	throw.ifsupernotcorrectcall +AAAA
+        (
+            0x08fe,
+            ByteCodeFormat::new(
+                "throw.ifsupernotcorrectcall".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16],
+            ),
+        ),
         // 0x09fd 	PREF_V8_IMM32 	wide.stobjbyindex vAA, +BBBBBBBB
+        (
+            0x09fd,
+            ByteCodeFormat::new(
+                "wide.stobjbyindex".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::V8, FormatUnit::IMM32],
+            ),
+        ),
         // 0x09fe 	PREF_ID16 	throw.undefinedifholewithname @AAAA
         (
             0x09fe,
@@ -1718,15 +2003,93 @@ fn init_prefix_opcode_map() -> HashMap<u16, ByteCodeFormat> {
             ),
         ),
         // 0x0afd 	PREF_V8_IMM32 	wide.stownbyindex vAA, +BBBBBBBB
-        // 0x0bfd 	PREF_IMM16 	wide.copyrestargs +AAAA 	A：形参列表中剩余参数起始的位次 	复制剩余参数，并将复制出的参数数组副本存放到acc中。
+        (
+            0x0afd,
+            ByteCodeFormat::new(
+                "wide.stownbyindex vAA, +BBBBBBBB".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::V8, FormatUnit::IMM32],
+            ),
+        ),
+        // 0x0bfd 	PREF_IMM16 	wide.copyrestargs +AAAA
+        (
+            0x0bfd,
+            ByteCodeFormat::new(
+                "wide.copyrestargs +AAAA".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16],
+            ),
+        ),
         // 0x0cfd 	PREF_IMM16_IMM16 	wide.ldlexvar +AAAA, +BBBB
+        (
+            0x0cfd,
+            ByteCodeFormat::new(
+                "wide.ldlexvar +AAAA, +BBBB".to_owned(),
+                vec![
+                    FormatUnit::PrefixOpcode,
+                    FormatUnit::IMM16,
+                    FormatUnit::IMM16,
+                ],
+            ),
+        ),
         // 0x0dfd 	PREF_IMM16_IMM16 	wide.stlexvar +AAAA, +BBBB
-        // 0x0efd 	PREF_IMM16 	wide.getmodulenamespace +AAAA 	A：模块索引 	对第A个模块，执行GetModuleNamespace，并将结果存放到acc中。
+        (
+            0x0dfd,
+            ByteCodeFormat::new(
+                "wide.stlexvar +AAAA, +BBBB".to_owned(),
+                vec![
+                    FormatUnit::PrefixOpcode,
+                    FormatUnit::IMM16,
+                    FormatUnit::IMM16,
+                ],
+            ),
+        ),
+        // 0x0efd 	PREF_IMM16 	wide.getmodulenamespace +AAAA
+        (
+            0x0efd,
+            ByteCodeFormat::new(
+                "wide.getmodulenamespace +AAAA".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16],
+            ),
+        ),
         // 0x0ffd 	PREF_IMM16 	wide.stmodulevar +AAAA
-        // 0x10fd 	PREF_IMM16 	wide.ldlocalmodulevar +AAAA 	A：槽位号 	将槽位号为A的局部模块变量存放到acc中。
-        // 0x11fd 	PREF_IMM16 	wide.ldexternalmodulevar +AAAA 	A：槽位号 	将槽位号为A的外部模块变量存放到acc中。
-        // 0x12fd 	PREF_IMM16 	wide.ldpatchvar +AAAA 	A：补丁变量槽位号
+        (
+            0x0ffd,
+            ByteCodeFormat::new(
+                "wide.stmodulevar +AAAA".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16],
+            ),
+        ),
+        // 0x10fd 	PREF_IMM16 	wide.ldlocalmodulevar +AAAA
+        (
+            0x10fd,
+            ByteCodeFormat::new(
+                "wide.ldlocalmodulevar +AAAA".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16],
+            ),
+        ),
+        // 0x11fd 	PREF_IMM16 	wide.ldexternalmodulevar +AAAA
+        (
+            0x11fd,
+            ByteCodeFormat::new(
+                "wide.ldexternalmodulevar +AAAA".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16],
+            ),
+        ),
+        // 0x12fd 	PREF_IMM16 	wide.ldpatchvar +AAAA
+        (
+            0x12fd,
+            ByteCodeFormat::new(
+                "wide.ldpatchvar +AAAA".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16],
+            ),
+        ),
         // 0x13fd 	PREF_IMM16 	wide.stpatchvar +AAAA
+        (
+            0x13fd,
+            ByteCodeFormat::new(
+                "wide.stpatchvar +AAAA".to_owned(),
+                vec![FormatUnit::PrefixOpcode, FormatUnit::IMM16],
+            ),
+        ),
     ];
 
     let mut ok = HashMap::new();
@@ -1761,9 +2124,8 @@ impl BytecodeMap {
         self.prefix_opcode_table.get(&opcode)
     }
 
-    pub fn parse(&self, code: &Code) {
+    pub fn parse(&self, code: &Code, region: &Region, source: &[u8]) {
         let instructions = code.instructions();
-        println!("开始解析指令...");
         let mut offset = 0;
         let size = instructions.len();
         loop {
@@ -1773,9 +2135,9 @@ impl BytecodeMap {
             if bcf.is_none() {
                 let opcode = instructions.pread::<u8>(offset).unwrap();
                 let bcf = self.get_opcode(opcode as u16);
-                offset = bcf.parse(instructions, offset);
+                offset = bcf.parse(instructions, offset, region, source);
             } else {
-                offset = bcf.unwrap().parse(instructions, offset);
+                offset = bcf.unwrap().parse(instructions, offset, region, source);
             }
 
             if offset >= size {
@@ -1786,7 +2148,7 @@ impl BytecodeMap {
             if offset + 1 == size {
                 let opcode = instructions.pread::<u8>(offset).unwrap();
                 let bcf = self.get_opcode(opcode as u16);
-                bcf.parse(instructions, offset);
+                bcf.parse(instructions, offset, region, source);
                 break;
             }
         }
