@@ -122,10 +122,11 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
         for _ in 0..num_methods {
             // TODO: 记录这个offset，并且保存起来，未来建立一个 map
             let method = source.pread::<Method>(offset).unwrap();
-            method_map.insert(offset, method);
 
             let size = *method.size();
             offset += size;
+
+            method_map.insert(offset, method);
             // methods.push(method);
         }
 

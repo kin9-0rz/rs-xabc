@@ -2,6 +2,8 @@ use getset::Getters;
 use scroll::Uleb128;
 
 use crate::error;
+use crate::region::Region;
+use crate::string::ABCString;
 use crate::uint16_t;
 use crate::uint32_t;
 use crate::uint8_t;
@@ -86,6 +88,35 @@ pub struct Method {
     // method_data: Vec,
     size: usize,
     method_data: MethodData,
+}
+
+impl Method {}
+
+// TODO: 方法签名还不完整
+pub fn get_method_sign(source: &[u8], offset: usize, region: &Region) -> String {
+    let mut name = String::new();
+    let mut off = offset;
+    let class_idx = source.pread::<uint16_t>(off).unwrap();
+    off += 2;
+    let class_name = region.get_class_name(class_idx as usize).to_string();
+    // println!("class_name: {}", class_name);
+    name += &class_name;
+    name += "->";
+
+    let _proto_idx = source.pread::<uint16_t>(off).unwrap();
+    off += 2;
+    // TODO: 获取方法签名，获取参数
+
+    let name_idx = source.pread::<uint32_t>(off).unwrap();
+    // println!("name_idx: {}", name_idx);
+    let method_name = source
+        .pread::<ABCString>(name_idx as usize)
+        .unwrap()
+        .to_string();
+
+    name += &method_name;
+
+    name
 }
 
 impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Method {

@@ -136,6 +136,8 @@ impl Region {
         self.header.start_off() as usize <= off && off < self.header.end_off() as usize
     }
 
+    /// 根据索引获取它的类型
+    // 只有一个地方用到，解析方法的时候，有一个。
     pub fn get_class_name(&self, idx: usize) -> &FieldType {
         self.class_region_idx.get(&idx)
     }

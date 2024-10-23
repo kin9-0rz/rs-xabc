@@ -18,7 +18,7 @@ use crate::region::Region;
 use crate::region::RegionHeader;
 use crate::source::Source;
 use crate::string::ABCString;
-use crate::{error, uint16_t};
+use crate::{error, literal, uint16_t, uint8_t};
 
 use super::uint32_t;
 
@@ -37,6 +37,7 @@ pub struct AbcFile<T> {
     string_map: HashMap<uint32_t, ABCString>,
     /// TODO: Method Map (offset: String)
     method_map: HashMap<usize, String>,
+    literal_array_map: HashMap<usize, String>,
 }
 
 impl<T> AbcFile<T>
@@ -71,6 +72,10 @@ where
         }
     }
 
+    fn get_method_by_offset(&self, offset: usize) -> Option<&String> {
+        self.method_map.get(&offset)
+    }
+
     /// 获取所有的方法名
     // pub fn get_methods_name(&self) -> Vec<String> {}
 
@@ -89,11 +94,26 @@ where
         self.parse_header();
         self.parse_class_index();
         self.parse_region();
+        self.parse_literal_array_index();
+
         self.parse_code();
-        println!("StringID{} -> {:?}", 4429, self.get_string_by_off(4429));
-        println!("StringID{} -> {:?}", 1087, self.get_string_by_off(1087));
-        println!("LiteralID{} -> {:?}", 5550, self.get_string_by_off(5550));
-        println!("LiteralID{} -> {:?}", 4821, self.get_string_by_off(4821));
+        // self.init_method_map();
+
+        // println!("StringID{} -> {:?}", 4429, self.get_string_by_off(4429));
+        // println!("StringID{} -> {:?}", 1087, self.get_string_by_off(1087));
+        // println!("LiteralID{} -> {:?}", 5550, self.parse_literals(5550));
+        // println!("LiteralID{} -> {:?}", 4821, self.parse_literals(4821));
+    }
+
+    /// 解析 LiteralArray 并将数据存放起来
+    pub fn parse_literal_array_index(&mut self) {
+        println!("-> Parse literals");
+        self.literal_array_map = literal::parse_literal_array_index(
+            self.source.as_ref(),
+            self.header().literalarray_idx_off(),
+            self.header().literalarrays_size(),
+            self.regions(),
+        );
     }
 
     fn get_region(&self, offset: usize) -> Option<&Region> {
@@ -116,16 +136,16 @@ where
             let clazz = item.1;
 
             let class_name = clazz.name().str();
-            if class_name
-                != "Lcom.example.myapplication/entry/ets/entrybackupability/EntryBackupAbility;"
-            {
-                continue;
-            }
-            for method in clazz.methods().iter() {
+            // if class_name
+            //     != "Lcom.example.myapplication/entry/ets/entrybackupability/EntryBackupAbility;"
+            // {
+            //     continue;
+            // }
+            for (_offset, method) in clazz.method_map().iter() {
                 let name = self.get_string_by_off(*method.name_off());
-                if name != "func_main_0" {
-                    continue;
-                }
+                // if name != "func_main_0" {
+                //     continue;
+                // }
                 println!("{} -> {}", class_name, name);
                 let data = method.method_data();
                 let code_off = data.code_off();
@@ -137,15 +157,14 @@ where
                 println!("{} -> {:?}", code_off, code);
 
                 let bytecode_map = BytecodeMap::new();
-                // TODO: 解析字节码的时候，它可以访问 Region，这样才用可能获取数据。
-                bytecode_map.parse(&code, region, self.source.as_ref());
+                bytecode_map.parse(&code, region, self.source.as_ref(), &self.literal_array_map);
             }
         }
     }
 
     /// 解析 Class
     fn parse_class_index(&mut self) {
-        let num_classes = self.header().num_classes() as usize;
+        let num_classes = self.header().classes_size() as usize;
         let class_idx_off = self.header().class_idx_off() as usize;
 
         // 一次性解析所有的Class
@@ -189,8 +208,6 @@ where
         }
     }
 
-    pub fn parse_literalarray_idx(&mut self) {}
-
     pub fn get_class_name_by_off(&self, idx: uint32_t) -> ABCString {
         if self.is_foreign_off(idx) {
             let v = self.foreign_classes.get(&idx).unwrap();
@@ -201,11 +218,12 @@ where
     }
 
     /// 按索引查找类型定义，在这里找 [`ClassRegionIndex`]
-    pub fn get_field_type_by_class_idx(&self, idx: &uint16_t) -> String {
-        // FIXME: 如果 regions 有多个，我怎么知道是哪个？
+    pub fn get_field_type_by_class_idx(&self, offset: usize, idx: usize) -> String {
         let mut clz = String::new();
-        let idx = *idx as usize;
         self.regions.iter().for_each(|region| {
+            if !region.is_here(offset) {
+                return;
+            }
             let class_region_idx = region.class_region_idx();
             let class_idx = class_region_idx.get(&idx);
             clz = class_idx.name.clone();
@@ -262,7 +280,7 @@ where
                     .unwrap();
 
                 let f = self.parse_field_type(class_offset);
-                println!("{} -> {:?}", off, &f);
+                println!("FieldType: {} -> {:?}", off, &f);
                 class_region_idx.push(f);
             }
 
@@ -278,7 +296,7 @@ where
                 mslr_idx.push(offset);
                 // NOTE: 存放的是偏移地址，但是，这个偏移地址的内容是啥，不知道。
                 // 只有解析代码的时候，才知道。
-                println!("{} -> {}", i, offset);
+                println!("MSLR: {} -> {}", i, offset);
                 // println!("{} -> {:?}", offset, self.get_string_by_off(offset));
 
                 // FIXME: 这个 Region 里面有3类数据，怎么区分？
@@ -355,6 +373,7 @@ impl AbcReader {
             regions: Vec::new(),
             string_map: HashMap::new(),
             method_map: HashMap::new(),
+            literal_array_map: HashMap::new(),
         })
     }
 

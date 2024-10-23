@@ -23,7 +23,7 @@ pub struct Header {
     /// 外部区域的大小，以字节为单位。
     foreign_size: uint32_t,
     /// ClassIndex结构中元素的数量，即文件中定义的Class的数量。
-    num_classes: uint32_t,
+    classes_size: uint32_t,
     /// 一个偏移量，指向ClassIndex。
     class_idx_off: uint32_t,
     /// LineNumberProgramIndex结构中元素的数量，即文件中定义的Line number program的数量。
@@ -31,7 +31,7 @@ pub struct Header {
     /// 一个偏移量，指向LineNumberProgramIndex。
     lnp_idx_off: uint32_t,
     /// LiteralArrayIndex 的数量
-    num_literalarrays: uint32_t,
+    literalarrays_size: uint32_t,
     /// 指向 LiteralArrayIndex 的偏移量
     literalarray_idx_off: uint32_t,
     /// RegionIndex 的数量
@@ -63,6 +63,8 @@ checksum: {:?}
 类索引的偏移: {}
 行号索引数量: {}
 行号索引偏移: {}
+字面量数组的数量: {}
+字面量数组的偏移: {}
 索引头的数量: {}
 索引头的偏移: {}
 ",
@@ -72,10 +74,12 @@ checksum: {:?}
             self.file_size,
             self.foreign_off,
             self.foreign_size,
-            self.num_classes,
+            self.classes_size,
             self.class_idx_off,
             self.num_lnps,
             self.lnp_idx_off,
+            self.literalarrays_size,
+            self.literalarray_idx_off,
             self.region_size,
             self.region_off,
         )

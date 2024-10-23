@@ -5,6 +5,7 @@ pub mod code;
 mod error;
 pub mod field;
 pub mod header;
+pub mod literal;
 pub mod lnp;
 pub mod method;
 pub mod region;

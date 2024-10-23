@@ -84,6 +84,7 @@ impl ByteCodeFormat {
         offset: usize,
         region: &Region,
         source: &[u8],
+        literal_array_map: &HashMap<usize, String>,
     ) -> usize {
         let mut offset = offset;
         let opcode_name = self.name.split_whitespace().collect::<Vec<&str>>()[0];
@@ -129,7 +130,15 @@ impl ByteCodeFormat {
                     let data = instructions.pread_with::<u16>(offset, scroll::LE).unwrap();
                     raw += &format!("{:04X}", data);
                     offset += 2;
-                    strx += &format!("LiteralID@{} ", region.get_msl_offset(data as usize));
+
+                    // strx += &format!("LiteralID@{} ", region.get_msl_offset(data as usize));
+
+                    let array_off = *region.get_msl_offset(data as usize);
+                    let array_off = array_off as usize;
+
+                    let x = literal_array_map.get(&array_off).unwrap();
+                    // println!("{}", x);
+                    strx += &format!("{{ {} }}", x);
 
                     // TODO: 找到对应的数组
                 }
@@ -144,8 +153,9 @@ impl ByteCodeFormat {
                         .pread::<ABCString>(*string_offset as usize)
                         .unwrap()
                         .str();
-                    println!("{}", x);
-                    strx += &x.to_string();
+                    // println!("{}", x);
+                    strx += &format!("\"{}\"", x);
+                    // strx += &x.to_string();
                 }
                 FormatUnit::MethodID => {
                     let data = instructions.pread_with::<u16>(offset, scroll::LE).unwrap();
@@ -1999,7 +2009,7 @@ fn init_prefix_opcode_map() -> HashMap<u16, ByteCodeFormat> {
             0x09fe,
             ByteCodeFormat::new(
                 "throw.undefinedifholewithname".to_owned(),
-                vec![FormatUnit::PrefixOpcode, FormatUnit::LiteralID],
+                vec![FormatUnit::PrefixOpcode, FormatUnit::StringID],
             ),
         ),
         // 0x0afd 	PREF_V8_IMM32 	wide.stownbyindex vAA, +BBBBBBBB
@@ -2124,7 +2134,13 @@ impl BytecodeMap {
         self.prefix_opcode_table.get(&opcode)
     }
 
-    pub fn parse(&self, code: &Code, region: &Region, source: &[u8]) {
+    pub fn parse(
+        &self,
+        code: &Code,
+        region: &Region,
+        source: &[u8],
+        literal_array_map: &HashMap<usize, String>,
+    ) {
         let instructions = code.instructions();
         let mut offset = 0;
         let size = instructions.len();
@@ -2135,9 +2151,11 @@ impl BytecodeMap {
             if bcf.is_none() {
                 let opcode = instructions.pread::<u8>(offset).unwrap();
                 let bcf = self.get_opcode(opcode as u16);
-                offset = bcf.parse(instructions, offset, region, source);
+                offset = bcf.parse(instructions, offset, region, source, literal_array_map);
             } else {
-                offset = bcf.unwrap().parse(instructions, offset, region, source);
+                offset =
+                    bcf.unwrap()
+                        .parse(instructions, offset, region, source, literal_array_map);
             }
 
             if offset >= size {
@@ -2148,7 +2166,7 @@ impl BytecodeMap {
             if offset + 1 == size {
                 let opcode = instructions.pread::<u8>(offset).unwrap();
                 let bcf = self.get_opcode(opcode as u16);
-                bcf.parse(instructions, offset, region, source);
+                bcf.parse(instructions, offset, region, source, literal_array_map);
                 break;
             }
         }

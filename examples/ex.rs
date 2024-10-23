@@ -6,6 +6,7 @@ fn main() {
     // let mut abc = AbcReader::from_file(path).unwrap();
     let mut abc = AbcReader::from_file("fixtures/demo.abc").unwrap();
     abc.parse();
+    println!("Header -> {:?}", abc.header());
 
     for cls in abc.classes() {
         // println!("-> {:?}", cls.0);
@@ -15,7 +16,7 @@ fn main() {
         // let x = abc.get_string_by_off(*name_off);
         // println!("Field -> {:?}", x);
 
-        for method in cls.1.methods() {
+        for method in cls.1.method_map() {
             // println!("{:?}", method);
             // let class_idx = method.class_idx();
             // let cls = abc.get_field_type_by_class_idx(class_idx);
