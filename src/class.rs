@@ -147,6 +147,16 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
     }
 }
 
+impl Class {
+    pub fn has_method(&self, offset: usize) -> bool {
+        self.method_map.contains_key(&offset)
+    }
+
+    pub fn get_method(&self, offset: usize) -> Option<&Method> {
+        self.method_map.get(&offset)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ClassAccessFlags {
     Public = 0x0001,

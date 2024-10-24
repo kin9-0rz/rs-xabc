@@ -80,21 +80,15 @@ impl LiteralTag {
 
 // https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-bytecode-file-format-V5#literalarray
 fn parse_literal_array(source: &[u8], offset: usize, region: &Region) -> String {
-    // println!("parse_literal_array");
     let num_literals = source.pread_with::<uint32_t>(offset, scroll::LE).unwrap();
 
     let mut off = offset;
     off += 4;
 
     let mut result = String::new();
-
     let mut counter = 0;
     loop {
-        // println!("num_literals: {}", num_literals);
-        // println!("counter: {}", counter);
         if counter >= num_literals {
-            // println!("num_literals: {}", num_literals);
-            // println!("counter: {}", counter);
             break;
         }
 
@@ -104,20 +98,17 @@ fn parse_literal_array(source: &[u8], offset: usize, region: &Region) -> String 
         off += 1;
         match LiteralTag::from_u8(tag_value) {
             LiteralTag::TAG_VALUE => {
-                // let data = source.pread::<u8>(off).unwrap();
-                // println!("TaggleValue: {}", data);
+                tracing::debug!("TaggleValue: Match");
                 off += 1;
             }
             LiteralTag::BOOL => {
                 let data = source.pread::<u8>(off).unwrap();
                 off += 1;
-                // println!("Bool: {}", data);
                 let s = format!("bool: {}, ", data);
                 result += &s;
             }
             LiteralTag::INTEGER => {
                 let data = source.pread::<u32>(off).unwrap();
-                // let data = source.pread_with::<u32>(off, scroll::BE).unwrap();
                 let s = format!("i32: 0x{:X}, ", data);
                 result += &s;
                 off += 4;
@@ -130,17 +121,14 @@ fn parse_literal_array(source: &[u8], offset: usize, region: &Region) -> String 
             }
             LiteralTag::DOUBLE => {
                 let data = source.pread_with::<u64>(off, scroll::BE).unwrap();
-                println!("f64: 0x{:X} ", data);
                 let s = format!("f64: {}, ", f64::from_bits(data));
                 result += &s;
 
                 off += 8;
             }
             LiteralTag::STRING => {
-                // println!("-> Parse String");
                 let string_off = source.pread::<u32>(off).unwrap();
                 let str = source.pread::<ABCString>(string_off as usize).unwrap();
-                // println!("Str: {}", str.str());
                 let s = format!("str: \"{}\", ", str.str());
                 result += &s;
 
@@ -149,7 +137,6 @@ fn parse_literal_array(source: &[u8], offset: usize, region: &Region) -> String 
             LiteralTag::METHOD => {
                 let method_off = source.pread::<uint32_t>(off).unwrap();
                 let method = method::get_method_sign(source, method_off as usize, region);
-                // println!("Method: {}", method);
                 let s = format!("Method: {}, ", method);
                 result += &s;
 
@@ -163,8 +150,6 @@ fn parse_literal_array(source: &[u8], offset: usize, region: &Region) -> String 
             }
             LiteralTag::ACCESSOR => {
                 let data = source.pread::<u8>(off).unwrap();
-                // println!("Accessor: {}", data);
-                // println!("Accessor: {}", data);
                 let s = format!("Accessor: {}, ", data);
                 result += &s;
                 off += 1;
@@ -176,67 +161,68 @@ fn parse_literal_array(source: &[u8], offset: usize, region: &Region) -> String 
                 off += 2;
             }
             LiteralTag::ARRAY_U1 => {
+                tracing::debug!("ArrayU1: Match");
                 off += 4;
-                // println!("ArrayU1: {}", tag_value);
             }
             LiteralTag::ARRAY_U8 => {
-                // println!("ArrayU8: {}", tag_value);
+                tracing::debug!("ArrayU8: Match");
                 off += 4;
             }
             LiteralTag::ARRAY_I8 => {
-                // println!("ArrayI8: {}", tag_value);
+                tracing::debug!("ArrayI8: Match");
                 off += 4;
             }
             LiteralTag::ARRAY_U16 => {
-                // println!("ArrayU16: {}", tag_value);
+                tracing::debug!("ArrayU16: Match");
                 off += 4;
             }
             LiteralTag::ARRAY_I16 => {
-                // println!("ArrayI16: {}", tag_value);
+                tracing::debug!("ArrayI16: Match");
                 off += 4;
             }
             LiteralTag::ARRAY_U32 => {
-                // println!("ArrayU32: {}", tag_value);
+                tracing::debug!("ArrayU32: Match");
                 off += 4;
             }
             LiteralTag::ARRAY_I32 => {
-                // println!("ArrayI32: {}", tag_value);
+                tracing::debug!("ArrayI32: Match");
                 off += 4;
             }
             LiteralTag::ARRAY_U64 => {
-                // println!("ArrayU64: {}", tag_value);
+                tracing::debug!("ArrayU64: Match");
                 off += 4;
             }
             LiteralTag::ARRAY_I64 => {
-                // println!("ArrayI64: {}", tag_value);
+                tracing::debug!("Match ArrayI64");
                 off += 4;
             }
             LiteralTag::ARRAY_F32 => {
-                // println!("ArrayF32: {}", tag_value);
+                tracing::debug!("Match ArrayF32");
                 off += 4;
             }
             LiteralTag::ARRAY_F64 => {
-                // println!("ArrayF64: {}", tag_value);
+                tracing::debug!("ArrayF64: {}", tag_value);
                 off += 8;
             }
             LiteralTag::ARRAY_STRING => {
                 // TODO: 一个字符串数组
+                tracing::debug!("ArrayString: {}", tag_value);
                 off += 4;
             }
             LiteralTag::ASYNC_GENERATOR_METHOD => {
-                println!("ArrayGeneratorMethod: {}", tag_value);
+                tracing::debug!("ArrayGeneratorMethod: {}", tag_value);
                 off += 4;
             }
             LiteralTag::LITERAL_BUFFER_INDEX => {
-                println!("LiteralBufferIndex: {}", tag_value);
+                tracing::debug!("LiteralBufferIndex: {}", tag_value);
                 off += 4;
             }
             LiteralTag::LITERAL_ARRAY => {
-                println!("LiteralArr: {}", tag_value);
+                tracing::debug!("LiteralArr: {}", tag_value);
                 off += 4;
             }
             LiteralTag::BUILTIN_TYPE_INDEX => {
-                println!("BuiltinTypeIndex: {}", tag_value);
+                tracing::debug!("BuiltinTypeIndex: {}", tag_value);
                 off += 1;
             }
             LiteralTag::GETTER => {
@@ -246,15 +232,15 @@ fn parse_literal_array(source: &[u8], offset: usize, region: &Region) -> String 
                 off += 4;
             }
             LiteralTag::SETTER => {
-                println!("Setter: {}", tag_value);
+                tracing::debug!("Setter: {}", tag_value);
                 off += 4;
             }
             LiteralTag::NULL_VALUE => {
-                println!("NullValue: {}", tag_value);
+                tracing::debug!("NullValue: {}", tag_value);
                 off += 1;
             }
             LiteralTag::UNKNOWN => {
-                // println!("未知的Tag: 0x{:X}", tag_value);
+                tracing::warn!("未知的Tag: 0x{:X}", tag_value);
                 break;
             }
         }
@@ -285,16 +271,12 @@ pub fn parse_literal_array_index(
         }
 
         if region.is_none() {
-            println!("region not found");
+            tracing::warn!("region not found");
             continue;
         }
 
         let region = region.unwrap();
-
         let literal = parse_literal_array(source, array_off as usize, region);
-
-        println!("{} -> {}", array_off, literal);
-
         literal_array_map.insert(array_off as usize, literal);
     }
 

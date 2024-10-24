@@ -106,6 +106,7 @@ pub enum FieldAccessFlag {
     SYNTHETIC = 0x1000,
     ENUM = 0x4000,
 }
+
 impl FieldAccessFlag {
     pub fn parse(value: u64) -> Vec<String> {
         let mut access_flags: Vec<String> = Vec::new();

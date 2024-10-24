@@ -1,11 +1,15 @@
-// TODO: 解析Code
-
-use std::collections::{HashMap, HashSet};
+/// 解析字节码
+use std::collections::HashMap;
 
 use getset::Getters;
 use scroll::Pread;
 
-use crate::{abc::AbcFile, code::Code, method::Method, region::Region, source, string::ABCString};
+use crate::{
+    code::Code,
+    method::{self},
+    region::Region,
+    string::ABCString,
+};
 
 // https://developer.huawei.com/consumer/cn/doc/harmonyos-guides-V5/arkts-bytecode-fundamentals-V5#字节码格式说明
 /// 格式组成的基本单元
@@ -131,16 +135,10 @@ impl ByteCodeFormat {
                     raw += &format!("{:04X}", data);
                     offset += 2;
 
-                    // strx += &format!("LiteralID@{} ", region.get_msl_offset(data as usize));
-
                     let array_off = *region.get_msl_offset(data as usize);
                     let array_off = array_off as usize;
-
                     let x = literal_array_map.get(&array_off).unwrap();
-                    // println!("{}", x);
                     strx += &format!("{{ {} }}", x);
-
-                    // TODO: 找到对应的数组
                 }
                 FormatUnit::StringID => {
                     let data = instructions.pread_with::<u16>(offset, scroll::LE).unwrap();
@@ -153,32 +151,18 @@ impl ByteCodeFormat {
                         .pread::<ABCString>(*string_offset as usize)
                         .unwrap()
                         .str();
-                    // println!("{}", x);
                     strx += &format!("\"{}\"", x);
-                    // strx += &x.to_string();
                 }
                 FormatUnit::MethodID => {
                     let data = instructions.pread_with::<u16>(offset, scroll::LE).unwrap();
                     raw += &format!("{:04X}", data);
                     offset += 2;
                     let method_offset = region.get_msl_offset(data as usize);
-                    // TODO: 找到对应的方法
-                    // TODO: 这里已经解析过一次了，没必要再次解析。
-                    // 最好是直接根据之前解析的情况，找到对应的值
-                    let x = source
-                        .as_ref()
-                        .pread::<Method>(*method_offset as usize)
-                        .unwrap();
-                    // TODO: 这里重新解析一次，完全没有必要
-                    let x = source
-                        .as_ref()
-                        .pread::<ABCString>(*x.name_off() as usize)
-                        .unwrap()
-                        .str();
-                    println!("{}", x);
-                    // strx += &format!("MethodID@{} ", method_offset);
 
-                    strx += &x.to_string();
+                    let method_sign =
+                        method::get_method_sign(source, *method_offset as usize, region);
+
+                    strx += &method_sign.to_string();
                     strx += " ";
                 }
                 FormatUnit::Imm4Imm4 => {
@@ -232,7 +216,8 @@ impl ByteCodeFormat {
     }
 }
 
-pub struct BytecodeMap {
+/// 字节码解析器
+pub struct BytecodeParser {
     // 存放字节码的字节码表
     pub opcode_table: HashMap<u16, ByteCodeFormat>,
     // 存放前缀字节码的字节码表
@@ -1467,11 +1452,51 @@ fn init_opcode_map() -> HashMap<u16, ByteCodeFormat> {
             0xb0,
             ByteCodeFormat::new("debugger".to_owned(), vec![FormatUnit::Opcode]),
         ),
-        // 0xb1 	V8 	creategeneratorobj vAA 	A：函数对象 	使用函数对象A，创建一个generator，并将其存放到acc中。
+        // 0xb1 	V8 	creategeneratorobj vAA
+        (
+            0xb1,
+            ByteCodeFormat::new(
+                "creategeneratorobj vAA".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::V8],
+            ),
+        ),
         // 0xb2 	V8_V8 	createiterresultobj vAA, vBB
+        (
+            0xb2,
+            ByteCodeFormat::new(
+                "createiterresultobj vAA, vBB".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::V8, FormatUnit::V8],
+            ),
+        ),
         // 0xb3 	IMM8_V8_V8 	createobjectwithexcludedkeys +AA, vBB, vCC
+        (
+            0xb3,
+            ByteCodeFormat::new(
+                "createobjectwithexcludedkeys +AA, vBB, vCC".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::IMM8,
+                    FormatUnit::V8,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xb4 	IMM8_V8 	newobjapply RR, vAA
+        (
+            0xb4,
+            ByteCodeFormat::new(
+                "newobjapply RR, vAA".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::RR, FormatUnit::V8],
+            ),
+        ),
         // 0xb5 	IMM16_V8 	newobjapply RRRR, vAA
+        (
+            0xb5,
+            ByteCodeFormat::new(
+                "newobjapply RRRR, vAA".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::RRRR, FormatUnit::V8],
+            ),
+        ),
         // 0xb6 	IMM8_ID16 	newlexenvwithname +AA, @BBBB
         (
             0xb6,
@@ -1480,7 +1505,14 @@ fn init_opcode_map() -> HashMap<u16, ByteCodeFormat> {
                 vec![FormatUnit::Opcode, FormatUnit::IMM8, FormatUnit::LiteralID],
             ),
         ),
-        // 0xb7 	V8 	createasyncgeneratorobj vAA 	A：函数对象 	基于函数对象A，创建一个异步的generator，并将其存放到acc中。
+        // 0xb7 	V8 	createasyncgeneratorobj vAA
+        (
+            0xb7,
+            ByteCodeFormat::new(
+                "createasyncgeneratorobj vAA".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::V8],
+            ),
+        ),
         // 0xb8 	V8_V8_V8 	asyncgeneratorresolve vAA, vBB, vCC
         (
             0xb8,
@@ -1561,20 +1593,149 @@ fn init_opcode_map() -> HashMap<u16, ByteCodeFormat> {
             ByteCodeFormat::new("dynamicimport".to_owned(), vec![FormatUnit::Opcode]),
         ),
         // 0xbe 	IMM16_ID16_IMM8 	definemethod RRRR, @AAAA, +BB
-        // 0xbf 	NONE 	resumegenerator 	默认入参：acc：生成器 	基于acc中存放的generator，执行GeneratorResume，并将结果存放到acc中。
-        // 0xc0 	NONE 	getresumemode 	默认入参：acc：生成器 	获取acc中所存放的generator的执行完成后恢复值的类型，并将其存放到acc中。
+        (
+            0xbe,
+            ByteCodeFormat::new(
+                "definemethod RRRR, @AAAA, +BB".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RRRR,
+                    FormatUnit::MethodID,
+                    FormatUnit::IMM8,
+                ],
+            ),
+        ),
+        // 0xbf 	NONE 	resumegenerator
+        (
+            0xbf,
+            ByteCodeFormat::new("resumegenerator".to_owned(), vec![FormatUnit::Opcode]),
+        ),
+        // 0xc0 	NONE 	getresumemode
+        (
+            0xc0,
+            ByteCodeFormat::new("getresumemode".to_owned(), vec![FormatUnit::Opcode]),
+        ),
         // 0xc1 	IMM16 	gettemplateobject RRRR
+        (
+            0xc1,
+            ByteCodeFormat::new(
+                "gettemplateobject RRRR".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::RRRR],
+            ),
+        ),
         // 0xc2 	V8 	delobjprop vAA
+        (
+            0xc2,
+            ByteCodeFormat::new(
+                "delobjprop vAA".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::V8],
+            ),
+        ),
         // 0xc3 	V8 	suspendgenerator vAA
+        (
+            0xc3,
+            ByteCodeFormat::new(
+                "suspendgenerator vAA".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::V8],
+            ),
+        ),
         // 0xc4 	V8 	asyncfunctionawaituncaught vAA
+        (
+            0xc4,
+            ByteCodeFormat::new(
+                "asyncfunctionawaituncaught vAA".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::V8],
+            ),
+        ),
         // 0xc5 	V8 	copydataproperties vAA
+        (
+            0xc5,
+            ByteCodeFormat::new(
+                "copydataproperties vAA".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::V8],
+            ),
+        ),
         // 0xc6 	V8_V8 	starrayspread vAA, vBB
+        (
+            0xc6,
+            ByteCodeFormat::new(
+                "starrayspread vAA, vBB".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::V8, FormatUnit::V8],
+            ),
+        ),
         // 0xc7 	IMM16_V8 	setobjectwithproto RRRR, vAA
+        (
+            0xc7,
+            ByteCodeFormat::new(
+                "setobjectwithproto RRRR, vAA".to_owned(),
+                vec![FormatUnit::Opcode, FormatUnit::RRRR, FormatUnit::V8],
+            ),
+        ),
         // 0xc8 	IMM16_V8_V8 	stownbyvalue RRRR, vAA, vBB
+        (
+            0xc8,
+            ByteCodeFormat::new(
+                "stownbyvalue RRRR, vAA, vBB".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RRRR,
+                    FormatUnit::V8,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xc9 	IMM8_V8_V8 	stsuperbyvalue RR, vAA, vBB
+        (
+            0xc9,
+            ByteCodeFormat::new(
+                "stsuperbyvalue RR, vAA, vBB".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::IMM8,
+                    FormatUnit::V8,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xca 	IMM16_V8_V8 	stsuperbyvalue RRRR, vAA, vBB
+        (
+            0xca,
+            ByteCodeFormat::new(
+                "stsuperbyvalue RRRR, vAA, vBB".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RRRR,
+                    FormatUnit::V8,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xcb 	IMM16_V8_IMM16 	stownbyindex RRRR, vAA, +BBBB
+        (
+            0xcb,
+            ByteCodeFormat::new(
+                "stownbyindex RRRR, vAA, +BBBB".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RRRR,
+                    FormatUnit::V8,
+                    FormatUnit::IMM16,
+                ],
+            ),
+        ),
         // 0xcc 	IMM16_ID16_V8 	stownbyname RRRR, @AAAA, vBB
+        (
+            0xcc,
+            ByteCodeFormat::new(
+                "stownbyname RRRR, @AAAA, vBB".to_owned(),
+                vec![
+                    FormatUnit::Opcode,
+                    FormatUnit::RRRR,
+                    FormatUnit::StringID,
+                    FormatUnit::V8,
+                ],
+            ),
+        ),
         // 0xcd 	V8 	asyncfunctionresolve vAA
         (
             0xcd,
@@ -2109,7 +2270,7 @@ fn init_prefix_opcode_map() -> HashMap<u16, ByteCodeFormat> {
     ok
 }
 
-impl BytecodeMap {
+impl BytecodeParser {
     pub fn new() -> Self {
         let opcode_table = init_opcode_map();
         let prefix_opcode_table = init_prefix_opcode_map();
@@ -2120,17 +2281,11 @@ impl BytecodeMap {
         }
     }
 
-    pub fn is_prefix_opcode(&self, opcode: u16) -> bool {
-        // 前缀指令
-        let prefixes = HashSet::from([0xfb, 0xfc, 0xfd, 0xfe]);
-        prefixes.contains(&opcode)
-    }
-
-    pub fn get_opcode(&self, opcode: u16) -> &ByteCodeFormat {
+    fn get_opcode(&self, opcode: u16) -> &ByteCodeFormat {
         self.opcode_table.get(&opcode).unwrap()
     }
 
-    pub fn get_prefix_opcode(&self, opcode: u16) -> Option<&ByteCodeFormat> {
+    fn get_prefix_opcode(&self, opcode: u16) -> Option<&ByteCodeFormat> {
         self.prefix_opcode_table.get(&opcode)
     }
 
@@ -2173,7 +2328,7 @@ impl BytecodeMap {
     }
 }
 
-impl Default for BytecodeMap {
+impl Default for BytecodeParser {
     fn default() -> Self {
         Self::new()
     }

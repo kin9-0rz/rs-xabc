@@ -45,7 +45,9 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for ABCString {
         // 字符串的长度
         let count = (utf16_length >> 1) as usize;
         let bytes = &source[*off..*off + count];
-        let str = std::str::from_utf8(bytes).unwrap();
+
+        let str = std::str::from_utf8(bytes).unwrap_or("-utf8-error-");
+
         let mut len = *off + count;
 
         // 还有`\0`

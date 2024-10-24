@@ -1,3 +1,5 @@
+// #![cfg_attr(docsrs, feature(doc_cfg))]
+
 pub mod abc;
 pub mod bytecode;
 pub mod class;
@@ -32,3 +34,19 @@ pub type sleb128_t = Sleb128;
 
 // A `Result` of `T` or an error of `error::Error`
 //pub type Result<T> = std::result::Result<T, error::Error>;
+
+#[cfg(feature = "logging")]
+fn init_logging() {
+    println!("Init logging...");
+    // tracing_subscriber::fmt::init();
+
+    // 测试运行的时候，不需要设置 RUST_LOG=debug
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::DEBUG)
+        .init();
+}
+
+#[cfg(not(feature = "logging"))]
+fn init_logging() {
+    println!("Not init logging...");
+}
