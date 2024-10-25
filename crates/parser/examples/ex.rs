@@ -1,4 +1,4 @@
-use rs_xabc::abc::AbcReader;
+use xabc_parser::abc::AbcReader;
 
 // #[cfg(feature = "tracing")]
 fn main() {
