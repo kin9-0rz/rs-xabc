@@ -26,7 +26,6 @@ tempfile = "3.12.0"
 
 [features]
 logging = ["tracing-subscriber"]
-# logging = []
 
 [profile.dev]
 debug = true

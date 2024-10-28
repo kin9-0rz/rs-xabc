@@ -1,4 +1,9 @@
-use std::{clone::Clone, convert::AsRef, ops::Index, rc::Rc};
+use std::{
+    clone::Clone,
+    convert::AsRef,
+    ops::{Deref, Index},
+    rc::Rc,
+};
 
 /// 存放 ABC 文件的原始数据，用于浅拷贝。
 pub struct Source<T> {
@@ -26,6 +31,15 @@ impl<T> Clone for Source<T> {
             // 不会创建 T 的数据副本
             inner: self.inner.clone(),
         }
+    }
+}
+
+impl Deref for Source<Rc<[u8]>> {
+    type Target = [u8];
+
+    #[inline]
+    fn deref(&self) -> &[u8] {
+        self.inner.as_ref()
     }
 }
 

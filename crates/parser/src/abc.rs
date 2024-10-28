@@ -1,5 +1,8 @@
+use binrw::meta;
 use memmap2::{Mmap, MmapOptions};
 use std::collections::{HashMap, HashSet};
+use std::io::Read;
+use std::{fs, u32};
 use std::{fs::File, path::Path};
 
 use crate::bytecode::BytecodeParser;
@@ -292,7 +295,7 @@ where
                     .unwrap();
 
                 let f = self.parse_field_type(class_offset);
-                tracing::debug!("FieldType: {} -> {:?}", off, &f);
+                // tracing::debug!("FieldType: {} -> {:?}", off, &f);
                 class_region_idx.push(f);
             }
 
@@ -306,14 +309,6 @@ where
                     .pread::<uint32_t>(msl_off + i * 4)
                     .unwrap();
                 mslr_idx.push(offset);
-                // NOTE: 存放的是偏移地址，但是，这个偏移地址的内容是啥，不知道。
-                // 只有解析代码的时候，才知道。
-                // println!("MSLR: {} -> {}", i, offset);
-                tracing::debug!("MSLR: {} -> {}", i, offset);
-                // println!("{} -> {:?}", offset, self.get_string_by_off(offset));
-
-                // FIXME: 这个 Region 里面有3类数据，怎么区分？
-                // 难道是实时，解析？
             }
 
             // 解析 FieldRegionIndex
@@ -368,15 +363,43 @@ where
 /// 用于读取 `Abc` 文件
 pub struct AbcReader {}
 
+const LARGE_FILE_THRESHOLD: u64 = 100 * 1024 * 1024; // 100MB以上的文件为大文件
+                                                     //
 impl AbcReader {
-    /// Try to read a `Dex` from the given path, returns error if
-    /// the file is not a dex or in case of I/O errors
-    pub fn from_file<P: AsRef<Path>>(file: P) -> Result<AbcFile<Mmap>, error::Error> {
+    fn read_file_to_vec<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, error::Error> {
+        let metadata = fs::metadata(path.as_ref())?;
+        let file_size = metadata.len();
+
+        if file_size > LARGE_FILE_THRESHOLD {
+            let file = File::open(path.as_ref())?;
+            let mmap = unsafe { Mmap::map(&file)? };
+            return Ok(Vec::from(&mmap[..]));
+        }
+
+        let mut file = File::open(path.as_ref())?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+        Ok(buffer)
+    }
+
+    /// 从文件中加载 Abc 文件到内存
+    pub fn from_file<P>(file: P) -> Result<AbcFile<Vec<u8>>, error::Error>
+    where
+        P: AsRef<Path>,
+    {
+        let buf = AbcReader::read_file_to_vec(file)?;
+        AbcReader::from_vec(buf)
+    }
+
+    pub fn from_array(buf: &[u8]) -> Result<AbcFile<Vec<u8>>, error::Error> {
+        let buf = Vec::from(buf);
+        AbcReader::from_vec(buf)
+    }
+
+    pub fn from_vec(buf: Vec<u8>) -> Result<AbcFile<Vec<u8>>, error::Error> {
         init_logging();
 
-        let map = unsafe { MmapOptions::new().map(&File::open(file.as_ref())?)? };
-        let source = Source::new(map);
-
+        let source = Source::new(buf);
         let mut abc_file = AbcFile {
             source: source.clone(),
             header: Header::default(),
@@ -389,20 +412,4 @@ impl AbcReader {
 
         Ok(abc_file)
     }
-
-    pub fn parse_header(&mut self) {
-        todo!()
-    }
-
-    // Loads a `Dex` from a `Vec<u8>`
-    //pub fn from_vec<B: AsRef<[u8]>>(buf: B) -> Result<Abc<B>> {
-    //    let inner: DexInner = buf.as_ref().pread(0)?;
-    //    let source = Source::new(buf);
-    //    let cache = Strings::new();
-    //    Ok(Abc {
-    //        source: source.clone(),
-    //        strings: cache,
-    //        inner,
-    //    })
-    //}
 }

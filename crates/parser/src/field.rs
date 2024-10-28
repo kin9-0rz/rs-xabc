@@ -38,41 +38,40 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Field {
             *off += 1;
             match tag_value {
                 0x00 => {
-                    println!("NOTHING");
+                    tracing::debug!("NOTHING");
                     break 'l;
                 }
                 0x01 => {
                     let num = Sleb128::read(source, off).unwrap();
-                    println!("int off: {:?}", off);
-                    println!("INT_VALUE -> {}", num);
+                    tracing::debug!("INT_VALUE -> {}", num);
                 }
                 0x02 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
-                    println!("VALUE -> {}", data);
+                    tracing::debug!("VALUE -> {}", data);
                 }
                 0x03 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
-                    println!("RUNTIME_ANNOTATIONS -> {}", data);
+                    tracing::debug!("RUNTIME_ANNOTATIONS -> {}", data);
                 }
                 0x04 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
-                    println!("ANNOTATIONS -> {}", data);
+                    tracing::debug!("ANNOTATIONS -> {}", data);
                 }
                 0x05 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
-                    println!("RUNTIME_TYPE_ANNOTATION -> {}", data);
+                    tracing::debug!("RUNTIME_TYPE_ANNOTATION -> {}", data);
                 }
                 0x06 => {
                     let data = source.pread::<uint32_t>(*off).unwrap();
                     *off += 4;
-                    println!("TYPE_ANNOTATION -> {}", data);
+                    tracing::debug!("TYPE_ANNOTATION -> {}", data);
                 }
                 _ => {
-                    println!("UNKNOWN: {}", tag_value);
+                    tracing::debug!("UNKNOWN: {}", tag_value);
                     break 'l;
                 }
             }
