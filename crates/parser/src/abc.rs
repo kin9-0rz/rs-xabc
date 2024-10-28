@@ -27,8 +27,6 @@ use scroll::Pread;
 pub struct AbcFile<T> {
     source: Source<T>,
     header: Header,
-    /// offset -> Class 类定义
-    // offset 可以确定 Region 范围
     classes: HashMap<uint32_t, Class>,
     foreign_classes: HashMap<uint32_t, ForeignClass>,
     regions: Vec<Region>,
@@ -43,7 +41,7 @@ where
         &self.header
     }
 
-    pub fn regions(&self) -> &Vec<Region> {
+    fn regions(&self) -> &Vec<Region> {
         &self.regions
     }
 
