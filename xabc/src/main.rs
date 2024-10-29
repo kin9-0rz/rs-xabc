@@ -1,4 +1,4 @@
-use xabc_parser::abc::AbcReader;
+use xabc_lib::abc::AbcReader;
 
 use clap::Parser;
 

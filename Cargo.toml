@@ -1,11 +1,13 @@
 [workspace]
-members = ["crates/parser", "xabc"]
+members = ["xabc-lib", "xabc"]
 resolver = "2"
 
 [workspace.package]
 name = "xabc"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
+repository = "https://gitee.com/kin9-0rz/rs-xabc"
+license = "MIT"
 
 [workspace.dependencies]
-rs-xabc = { version = "0.1.0", path = "crates/rs-xabc", default-features = false }
+rs-xabc = { version = "0.1.0", path = "xabc-lib", default-features = false }
