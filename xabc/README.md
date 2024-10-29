@@ -1,8 +1,8 @@
 # rs-xabc
 
-![Crates.io Version](https://img.shields.io/crates/v/xabc?style=for-the-badge) ![Crates.io Total Downloads](https://img.shields.io/crates/d/xabc?style=for-the-badge) ![Crates.io License](https://img.shields.io/crates/l/xabc?style=for-the-badge)
+> ABC文件解析工具
 
-方舟字节码解析工具。
+> ![Crates.io Version](https://img.shields.io/crates/v/xabc?style=for-the-badge) ![Crates.io Total Downloads](https://img.shields.io/crates/d/xabc?style=for-the-badge) ![Crates.io License](https://img.shields.io/crates/l/xabc?style=for-the-badge)
 
 ## 安装
 
