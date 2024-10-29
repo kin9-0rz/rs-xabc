@@ -13,17 +13,21 @@ struct Args {
     #[arg(short, long)]
     infos: bool,
 
-    /// 输出类信息
-    #[arg(short, long)]
+    /// 输出类列表
+    #[arg(short = 'z', long)]
     classes: bool,
 
-    /// 输出方法信息
+    /// 输出方法列表
     #[arg(short, long)]
     methods: bool,
 
-    /// 输出字符串信息
+    /// 输出字符串列表
     #[arg(short, long)]
     strings: bool,
+
+    /// 解析指定方法, 格式：类名->方法名，如: La/b/c;->mtd
+    #[arg(short = 'c', long)]
+    method: Option<String>,
 }
 
 fn main() {
@@ -32,11 +36,10 @@ fn main() {
 
     let abc = AbcReader::from_file(path).unwrap();
     if args.infos {
-        println!("{:?}", abc.header());
+        println!("{}", abc.header());
     }
 
     if args.classes {
-        println!("类名：");
         let mut classes = abc.get_class_names();
         classes.sort();
         for cls in classes {
@@ -45,7 +48,6 @@ fn main() {
     }
 
     if args.methods {
-        println!("方法名：");
         let mut methods = abc.get_method_names();
         methods.sort();
         for method in methods {
@@ -54,7 +56,6 @@ fn main() {
     }
 
     if args.strings {
-        println!("字符串：");
         let mut strings = abc.get_strings();
         strings.sort();
         for string in strings {
@@ -62,28 +63,11 @@ fn main() {
         }
     }
 
-    // TODO: 解析指定类?
-
-    // abc.parse_code();
-
-    // println!("Header -> {:?}", abc.header());
-
-    // for cls in abc.classes() {
-    // println!("-> {:?}", cls.0);
-
-    // let field = &cls.1.fields()[0];
-    // let name_off = field.name_off();
-    // let x = abc.get_string_by_off(*name_off);
-    // println!("Field -> {:?}", x);
-
-    // for method in cls.1.method_map() {
-    // println!("{:?}", method);
-    // let class_idx = method.class_idx();
-    // let cls = abc.get_field_type_by_class_idx(class_idx);
-    // println!("{:?}", cls);
-    // let name_off = method.name_off();
-    // let x = abc.get_string_by_off(*name_off);
-    // println!("{:?}", x);
-    // }
-    // }
+    if let Some(method) = args.method {
+        if !method.contains("->") {
+            println!("方法格式错误，正确格式：\"类名->方法名\"");
+            return;
+        }
+        abc.parse_method(method);
+    }
 }

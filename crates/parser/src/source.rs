@@ -34,16 +34,19 @@ impl<T> Clone for Source<T> {
     }
 }
 
-impl Deref for Source<Rc<[u8]>> {
+// scroll::Pread 必须实现这个
+// `Deref` 用于重载 * 运算符，可以通过 * 运算符访问 Source 的内部数据。
+impl<T: AsRef<[u8]>> Deref for Source<T> {
     type Target = [u8];
 
     #[inline]
     fn deref(&self) -> &[u8] {
-        self.inner.as_ref()
+        self.as_ref()
     }
 }
 
 // `AsRef<T>` 允许将一个类型的引用转换为类型 T 的引用，而不需要进行显式的转换或复制。
+// 重载 & 运算符； 将 Source 转换为 &[u8]
 impl<T: AsRef<[u8]>> AsRef<[u8]> for Source<T> {
     /// 获取内部数据的引用
     fn as_ref(&self) -> &[u8] {
@@ -63,6 +66,7 @@ where
     }
 }
 
+/// Index 用于重载 [m..n] 运算符
 impl<T> Index<std::ops::Range<usize>> for Source<T>
 where
     T: AsRef<[u8]>,
@@ -74,6 +78,7 @@ where
     }
 }
 
+/// Index 用于重载 [m..] 运算符
 impl<T> Index<std::ops::RangeFrom<usize>> for Source<T>
 where
     T: AsRef<[u8]>,

@@ -35,9 +35,6 @@ pub type sleb128_t = Sleb128;
 
 #[cfg(feature = "logging")]
 fn init_logging() {
-    println!("Init logging...");
-    // tracing_subscriber::fmt::init();
-
     // 测试运行的时候，不需要设置 RUST_LOG=debug
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::DEBUG)
@@ -45,6 +42,4 @@ fn init_logging() {
 }
 
 #[cfg(not(feature = "logging"))]
-fn init_logging() {
-    println!("Not init logging...");
-}
+fn init_logging() {}

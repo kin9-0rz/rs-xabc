@@ -1,23 +1,20 @@
-use binrw::meta;
-use memmap2::{Mmap, MmapOptions};
+use memmap2::Mmap;
 use std::collections::{HashMap, HashSet};
-use std::io::Read;
-use std::{fs, u32};
-use std::{fs::File, path::Path};
+use std::{
+    fs::{self, File},
+    io::Read,
+    path::Path,
+};
 
 use crate::bytecode::BytecodeParser;
-use crate::class::Class;
-use crate::class::ForeignClass;
+use crate::class::{Class, ForeignClass};
 use crate::code::Code;
 use crate::header::Header;
 use crate::lnp::LineNumberProgramIndex;
-use crate::region::ClassRegionIndex;
-use crate::region::FieldRegionIndex;
-use crate::region::FieldType;
-use crate::region::MethodStringLiteralRegionIndex;
-use crate::region::ProtoRegionIndex;
-use crate::region::Region;
-use crate::region::RegionHeader;
+use crate::region::{
+    ClassRegionIndex, FieldRegionIndex, FieldType, MethodStringLiteralRegionIndex,
+    ProtoRegionIndex, Region, RegionHeader,
+};
 use crate::source::Source;
 use crate::string::ABCString;
 use crate::{error, init_logging, literal};
@@ -44,72 +41,8 @@ where
         &self.header
     }
 
-    fn regions(&self) -> &Vec<Region> {
-        &self.regions
-    }
-
     fn parse_header(&mut self) {
-        self.header = self.source.as_ref().pread::<Header>(0).unwrap();
-    }
-
-    /// 获取所有的类名
-    pub fn get_class_names(&self) -> Vec<String> {
-        let mut class_names = Vec::new();
-        for clz in self.classes.values() {
-            let class_name = clz.name().str();
-            class_names.push(class_name);
-        }
-        class_names
-    }
-
-    /// 获取所有的方法名
-    pub fn get_method_names(&self) -> Vec<String> {
-        let mut method_names = Vec::new();
-        for clz in self.classes.values() {
-            for (_, method) in clz.method_map().iter() {
-                let name = self.get_string_by_off(*method.name_off());
-                method_names.push(name);
-            }
-        }
-        method_names
-    }
-
-    // fn is_method_offset(&self, offset: usize) -> bool {}
-
-    /// 获取所有的字符串
-    pub fn get_strings(&self) -> Vec<String> {
-        let mut method_offsets = HashSet::new();
-        for clz in self.classes.values() {
-            for (offset, _) in clz.method_map().iter() {
-                method_offsets.insert(offset);
-            }
-        }
-
-        let mut strings = Vec::new();
-        for region in self.regions.iter() {
-            let offsets = region.method_string_literal_region_idx().offsets();
-            for offset in offsets {
-                let offset = *offset as usize;
-                if method_offsets.contains(&offset) {
-                    continue;
-                }
-
-                if self.literal_array_map.contains_key(&offset) {
-                    continue;
-                }
-
-                // tracing::debug!("string offset -> {}", offset);
-                let string = self.get_string_by_off(offset as u32);
-                if string == "-utf8-error-" {
-                    tracing::warn!("{} -> 解析错误，不是字符串", offset);
-                    continue;
-                }
-                tracing::debug!("{} -> {}", offset, string);
-                strings.push(string);
-            }
-        }
-
-        strings
+        self.header = self.source.pread::<Header>(0).unwrap();
     }
 
     pub fn classes(&self) -> &HashMap<uint32_t, Class> {
@@ -129,7 +62,7 @@ where
             self.source.as_ref(),
             self.header.literalarray_idx_off(),
             self.header.literalarrays_size(),
-            self.regions(),
+            &self.regions,
         );
     }
 
@@ -146,9 +79,48 @@ where
         result
     }
 
+    pub fn parse_method(&self, name: String) {
+        let arr = name.split("->").collect::<Vec<&str>>();
+        let target_clazz = arr[0];
+        let target_method = arr[1];
+
+        let bytecode_map = BytecodeParser::new();
+        for item in &self.classes {
+            let offset = item.0;
+            let region = self.get_region(*offset as usize).unwrap();
+            let clazz = item.1;
+
+            let class_name = clazz.name().str();
+            if target_clazz == class_name {
+                for (_offset, method) in clazz.method_map().iter() {
+                    let _name = self.get_string_by_off(*method.name_off());
+                    if target_method == _name {
+                        let data = method.method_data();
+                        let code_off = data.code_off();
+                        let code = self
+                            .source
+                            .as_ref()
+                            .pread::<Code>(*code_off as usize)
+                            .unwrap();
+                        bytecode_map.parse(
+                            &code,
+                            region,
+                            self.source.as_ref(),
+                            &self.literal_array_map,
+                        );
+
+                        break;
+                    }
+                }
+
+                break;
+            }
+        }
+    }
     /// 解析 Code，按需解析
     // TODO: 解析整个文件，则输出到文件中？
     // TODO: 解析指定类？
+
     pub fn parse_code(&mut self) {
         let bytecode_map = BytecodeParser::new();
         for item in &self.classes {
@@ -157,11 +129,23 @@ where
             let clazz = item.1;
 
             let class_name = clazz.name().str();
-            // TODO: 字段的解析
+            tracing::debug!("Class Name -> {}", class_name);
+            for field in clazz.fields() {
+                let off = field.name_off();
+                let type_idx = *field.type_idx();
+                let type_name = region.get_class_name(type_idx as usize);
+                tracing::debug!(
+                    "Field Name -> {}:{}",
+                    self.get_string_by_off(*off),
+                    type_name
+                );
+                // TODO: 解析 Field 的值
+            }
+
             // TODO: 调整代码的输出
             for (_offset, method) in clazz.method_map().iter() {
                 let name = self.get_string_by_off(*method.name_off());
-                println!("\n{} -> {}", class_name, name);
+                println!("\n[方法]{}->{}", class_name, name);
                 let data = method.method_data();
                 let code_off = data.code_off();
                 let code = self
@@ -169,7 +153,6 @@ where
                     .as_ref()
                     .pread::<Code>(*code_off as usize)
                     .unwrap();
-                println!("{} -> {:?}", code_off, code);
                 bytecode_map.parse(&code, region, self.source.as_ref(), &self.literal_array_map);
             }
         }
@@ -183,7 +166,7 @@ where
         // 一次性解析所有的Class
         for i in 0..num_classes {
             let off = class_idx_off + i * 4;
-            let class_idx_off = self.source.as_ref().pread::<uint32_t>(off).unwrap();
+            let class_idx_off = self.source.pread::<uint32_t>(off).unwrap();
 
             let is_foreign_class = self.is_foreign_off(class_idx_off);
 
@@ -205,7 +188,8 @@ where
         }
     }
 
-    pub fn parse_lnp_idx(&mut self) {
+    #[allow(dead_code)]
+    fn parse_lnp_idx(&mut self) {
         // NOTE: 解析行号程序，未来再说。
         let mut lnp_idx = LineNumberProgramIndex::default();
         let num_lnp = self.header().num_lnps() as usize;
@@ -221,28 +205,13 @@ where
         }
     }
 
-    pub fn get_class_name_by_offset(&self, idx: uint32_t) -> ABCString {
+    fn get_class_name_by_offset(&self, idx: uint32_t) -> ABCString {
         if self.is_foreign_off(idx) {
             let v = self.foreign_classes.get(&idx).unwrap();
             return v.name().clone();
         }
 
         self.classes.get(&idx).unwrap().name().clone()
-    }
-
-    /// 按索引查找类型定义，在这里找 [`ClassRegionIndex`]
-    pub fn get_field_type_by_class_idx(&self, offset: usize, idx: usize) -> String {
-        let mut clz = String::new();
-        self.regions.iter().for_each(|region| {
-            if !region.is_here(offset) {
-                return;
-            }
-            let class_region_idx = region.class_region_idx();
-            let class_idx = class_region_idx.get(&idx);
-            clz = class_idx.name.clone();
-        });
-
-        clz
     }
 
     /// 获取基本类型
@@ -279,7 +248,7 @@ where
     fn parse_region_index(&mut self) {
         for i in 0..self.header().region_size() as usize {
             let off = self.header().region_off() as usize + i * 4;
-            let region_header = self.source.as_ref().pread::<RegionHeader>(off).unwrap();
+            let region_header = self.source.pread::<RegionHeader>(off).unwrap();
 
             // 解析 ClassRegionIndex
             let mut class_region_idx = ClassRegionIndex::default();
@@ -288,12 +257,7 @@ where
                 let off = class_idx_off + i * 4;
 
                 // 一个FiedType 大小是u32
-                let class_offset = self
-                    .source
-                    .as_ref()
-                    .pread_with::<uint32_t>(off, scroll::LE)
-                    .unwrap();
-
+                let class_offset = self.source.pread_with::<uint32_t>(off, scroll::LE).unwrap();
                 let f = self.parse_field_type(class_offset);
                 // tracing::debug!("FieldType: {} -> {:?}", off, &f);
                 class_region_idx.push(f);
@@ -303,11 +267,7 @@ where
             let msl_off = region_header.method_string_literal_region_idx_off() as usize;
             let mut mslr_idx = MethodStringLiteralRegionIndex::default();
             for i in 0..region_header.method_string_literal_region_idx_size() as usize {
-                let offset = self
-                    .source
-                    .as_ref()
-                    .pread::<uint32_t>(msl_off + i * 4)
-                    .unwrap();
+                let offset = self.source.pread::<uint32_t>(msl_off + i * 4).unwrap();
                 mslr_idx.push(offset);
             }
 
@@ -319,7 +279,6 @@ where
                 for i in 0..region_header.field_idx_size() as usize {
                     let offset = self
                         .source
-                        .as_ref()
                         .pread_with::<uint32_t>(field_idx_off + i * 4, scroll::LE)
                         .unwrap();
                     field_idx.push(offset);
@@ -334,7 +293,6 @@ where
                 for i in 0..region_header.proto_idx_size() as usize {
                     let offset = self
                         .source
-                        .as_ref()
                         .pread_with::<uint32_t>(proto_idx_off + i * 4, scroll::LE)
                         .unwrap();
                     proto_idx.push(offset);
@@ -358,19 +316,79 @@ where
         let end = start + self.header().foreign_size();
         start <= class_idx && class_idx <= end
     }
+
+    /// 获取所有的类名
+    pub fn get_class_names(&self) -> Vec<String> {
+        let mut class_names = Vec::new();
+        for clz in self.classes.values() {
+            let class_name = clz.name().str();
+            class_names.push(class_name);
+        }
+        class_names
+    }
+
+    /// 获取所有的方法名
+    pub fn get_method_names(&self) -> Vec<String> {
+        let mut method_names = Vec::new();
+        for clz in self.classes.values() {
+            let class_name = clz.name().str();
+            for (_, method) in clz.method_map().iter() {
+                let name = self.get_string_by_off(*method.name_off());
+                method_names.push(class_name.to_string() + "->" + &name);
+            }
+        }
+        method_names
+    }
+
+    /// 获取所有的字符串
+    pub fn get_strings(&self) -> Vec<String> {
+        let mut method_offsets = HashSet::new();
+        for clz in self.classes.values() {
+            for (offset, _) in clz.method_map().iter() {
+                method_offsets.insert(offset);
+            }
+        }
+
+        let mut strings = Vec::new();
+        for region in self.regions.iter() {
+            let offsets = region.method_string_literal_region_idx().offsets();
+            for offset in offsets {
+                let offset = *offset as usize;
+                if method_offsets.contains(&offset) {
+                    continue;
+                }
+
+                if self.literal_array_map.contains_key(&offset) {
+                    continue;
+                }
+
+                // tracing::debug!("string offset -> {}", offset);
+                let string = self.get_string_by_off(offset as u32);
+                if string == "-utf8-error-" {
+                    tracing::warn!("{} -> 解析错误，不是字符串", offset);
+                    continue;
+                }
+                tracing::debug!("{} -> {}", offset, string);
+                strings.push(string);
+            }
+        }
+
+        strings
+    }
 }
 
 /// 用于读取 `Abc` 文件
 pub struct AbcReader {}
 
-const LARGE_FILE_THRESHOLD: u64 = 100 * 1024 * 1024; // 100MB以上的文件为大文件
-                                                     //
+// 100MB以上的文件为大文件
+const LARGE_FILE: u64 = 100 * 1024 * 1024;
+
 impl AbcReader {
     fn read_file_to_vec<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, error::Error> {
         let metadata = fs::metadata(path.as_ref())?;
         let file_size = metadata.len();
 
-        if file_size > LARGE_FILE_THRESHOLD {
+        if file_size > LARGE_FILE {
             let file = File::open(path.as_ref())?;
             let mmap = unsafe { Mmap::map(&file)? };
             return Ok(Vec::from(&mmap[..]));

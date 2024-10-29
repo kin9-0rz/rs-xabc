@@ -98,9 +98,13 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Code {
         let num_args = Uleb128::read(source, off).unwrap();
         let code_size = Uleb128::read(source, off).unwrap();
         let tries_size = Uleb128::read(source, off).unwrap();
-        println!(
+
+        tracing::debug!(
             "num_regs: {}, num_args: {}, code_size: {}, tries_size: {}",
-            num_regs, num_args, code_size, tries_size
+            num_regs,
+            num_args,
+            code_size,
+            tries_size
         );
 
         let instructions = source[*off..*off + code_size as usize].to_vec();
