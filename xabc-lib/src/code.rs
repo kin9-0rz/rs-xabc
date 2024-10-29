@@ -4,6 +4,7 @@ use scroll::{ctx, Uleb128};
 use crate::error;
 
 // TODO: 解析 `TryBlock`
+#[allow(dead_code)]
 #[derive(Debug, Getters, Default)]
 #[get = "pub"]
 struct TryBlock {
@@ -42,6 +43,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for TryBlock {
 }
 
 // TODO: 解析 `CatchBlock`
+#[allow(dead_code)]
 #[derive(Debug, Getters, Default)]
 #[get = "pub"]
 struct CatchBlock {

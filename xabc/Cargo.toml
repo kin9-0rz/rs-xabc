@@ -2,13 +2,19 @@
 name = "xabc"
 version.workspace = true
 edition.workspace = true
+repository.workspace = true
+license.workspace = true
+description = "一个解析 abc 文件的命令行工具"
+categories = ["command-line-interface"]
+keywords = ["harmony", "abc", "parser", "cli"]
+readme = "README.md"
 
 [dependencies]
 clap = { version = "4.5.20", features = ["derive"] }
-xabc-parser = { path = "../crates/parser" }
+xabc-lib = { version = "0.1.0", path = "../xabc-lib" }
 
 [dev-dependencies]
-xabc-parser = { path = "../crates/parser", features = ["logging"] }
+xabc-lib = { version = "0.1.0", path = "../xabc-lib", features = ["logging"] }
 
 
 [doc]
