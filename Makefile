@@ -1,7 +1,10 @@
 build:
 	cargo b
-	./target/debug/xabc -h
+clean:
+	cargo clean
 test: build
-	@./target/debug/xabc -p crates/parser/fixtures/demo.abc -c
-install:
+	@./target/debug/xabc -h
+install: clean
 	cargo install --path xabc
+doc: clean
+	cargo doc --workspace --exclude xabc --no-deps --open 

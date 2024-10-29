@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/parser", "xabc"]
-resolver = "1"
+resolver = "2"
 
 [workspace.package]
 name = "xabc"

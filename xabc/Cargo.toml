@@ -10,6 +10,10 @@ xabc-parser = { path = "../crates/parser" }
 [dev-dependencies]
 xabc-parser = { path = "../crates/parser", features = ["logging"] }
 
+
+[doc]
+disabled = true
+
 [profile.dev]
 debug = true
 
