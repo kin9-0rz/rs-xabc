@@ -151,7 +151,7 @@ impl ByteCodeFormat {
                         .pread::<ABCString>(*string_offset as usize)
                         .unwrap()
                         .str();
-                    strx += &format!("\"{}\"", x);
+                    strx += &format!("\"{}\" ", x);
                 }
                 FormatUnit::MethodID => {
                     let data = instructions.pread_with::<u16>(offset, scroll::LE).unwrap();

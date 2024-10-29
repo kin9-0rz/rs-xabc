@@ -8,6 +8,7 @@ use getset::Getters;
 use scroll::ctx;
 use scroll::Pread;
 use scroll::Uleb128;
+use tracing::debug;
 
 #[derive(Debug, Getters)]
 #[get = "pub"]
@@ -66,43 +67,40 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for Class {
         let num_methods = Uleb128::read(source, off).unwrap();
 
         // let mut offset = *off;
-
         // TODO: ClassData
         'l: loop {
-            print!("{} ", *off);
             let tag_value = source.pread::<u8>(*off).unwrap();
             *off += 1;
-            println!(" -> {} ", *off);
             match tag_value {
                 0x00 => {
-                    println!("NOTHING: exit\n");
+                    debug!("NOTHING: exit");
                     break 'l;
                 }
                 0x01 => {
-                    println!("INTERFACES");
+                    debug!("INTERFACES");
                 }
                 0x02 => {
                     let data = source.pread::<u8>(*off).unwrap();
                     *off += 1;
-                    print!("SOURCE_LANG -> {}", data);
+                    debug!("SOURCE_LANG -> {}", data);
                 }
                 0x03 => {
-                    println!("RUNTIME_ANNOTATION");
+                    debug!("RUNTIME_ANNOTATION");
                 }
                 0x04 => {
-                    println!("ANNOTATION");
+                    debug!("ANNOTATION");
                 }
                 0x05 => {
-                    println!("RUNTIME_TYPE_ANNOTATION");
+                    debug!("RUNTIME_TYPE_ANNOTATION");
                 }
                 0x06 => {
-                    println!("TYPE_ANNOTATION");
+                    debug!("TYPE_ANNOTATION");
                 }
                 0x07 => {
-                    println!("SOURCE_FILE");
+                    debug!("SOURCE_FILE");
                 }
                 _ => {
-                    println!("Error! -> UNKNOWN: {}", tag_value);
+                    tracing::error!("Error! -> UNKNOWN: {}", tag_value);
                     break 'l;
                 }
             }
