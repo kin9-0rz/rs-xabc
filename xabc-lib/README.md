@@ -2,7 +2,7 @@
 
 > ABC文件解析库
 
-![Crates.io Version](https://img.shields.io/crates/v/xabc-lib?style=for-the-badge) ![Crates.io Total Downloads](https://img.shields.io/crates/d/xabc-lib?style=for-the-badge) ![Crates.io License](https://img.shields.io/crates/l/xabc-lib?style=for-the-badge)
+![Crates.io Version](https://img.shields.io/crates/v/xabc-lib?style=for-the-badge) [<img alt="docs.rs" src="https://img.shields.io/badge/docs.rs-xabc_lib-66c2a5?style=for-the-badge&labelColor=555555&logo=docs.rs" height="20">](https://docs.rs/xabc_lib) ![Crates.io Total Downloads](https://img.shields.io/crates/d/xabc-lib?style=for-the-badge) ![Crates.io License](https://img.shields.io/crates/l/xabc-lib?style=for-the-badge)
 
 ## 参考
 
