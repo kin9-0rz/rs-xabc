@@ -1,4 +1,4 @@
-use std::{fmt, rc::Rc};
+use std::{fmt, sync::Arc};
 
 use scroll::{ctx, Uleb128};
 
@@ -6,7 +6,8 @@ use crate::error;
 
 #[derive(Debug)]
 pub struct ABCString {
-    str: Rc<String>,
+    // str: Rc<String>,
+    str: Arc<String>,
     /// ABCString 长度，包括 `\0`
     length: usize,
 }
@@ -55,7 +56,7 @@ impl<'a> ctx::TryFromCtx<'a, scroll::Endian> for ABCString {
 
         Ok((
             ABCString {
-                str: Rc::new(str.to_string()),
+                str: Arc::new(str.to_string()),
                 length: len,
             },
             source.len(),

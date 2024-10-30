@@ -3,11 +3,8 @@ members = ["xabc-lib", "xabc"]
 resolver = "2"
 
 [workspace.package]
-name = "xabc"
-version = "0.1.3"
+# name = "xabc"
+version = "0.1.4"
 edition = "2021"
 repository = "https://gitee.com/kin9-0rz/rs-xabc"
 license = "MIT"
-
-[workspace.dependencies]
-rs-xabc = { version = "0.1.0", path = "xabc-lib", default-features = false }
