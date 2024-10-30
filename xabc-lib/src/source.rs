@@ -2,14 +2,16 @@ use std::{
     clone::Clone,
     convert::AsRef,
     ops::{Deref, Index},
-    rc::Rc,
+    sync::Arc,
 };
 
 /// 存放 ABC 文件的原始数据，用于浅拷贝。
 pub struct Source<T> {
     // Rc<T> 是一个引用计数的智能指针，用于在多个所有权之间共享不可变访问权。
     // 当你调用 Rc<T> 实例的 clone() 方法时，它不会创建 T 的数据的副本，而是增加引用计数，从而允许新的 Rc<T> 实例共享相同的数据。
-    inner: Rc<T>,
+    // inner: Rc<T>,
+    // 线程安全，Python 接口需要。
+    inner: Arc<T>,
 }
 
 impl<T> Source<T>
@@ -19,7 +21,8 @@ where
     /// 创建一个新的 `Source`
     pub(crate) fn new(inner: T) -> Self {
         Self {
-            inner: Rc::new(inner),
+            // inner: Rc::new(inner),
+            inner: Arc::new(inner),
         }
     }
 }

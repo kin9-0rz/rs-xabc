@@ -1,5 +1,5 @@
 [package]
-name = "xabc-lib"
+name = "xabc_lib"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
@@ -8,12 +8,14 @@ description = "一个解析 abc 文件的库"
 keywords = ["harmony", "abc", "parser"]
 readme = "README.md"
 
+
 [dependencies]
 scroll = { version = "0.12.0", features = ["derive"] }
 getset = "0.1.2"
 memmap2 = "0.9.5"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", optional = true } # "0.3.18"
+pyo3 = "0.22.0"
 # scroll_derive = "0.12.0"
 # anyhow = "1.0.86"
 # cesu8 = "1.1.0"
