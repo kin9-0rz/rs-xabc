@@ -11,10 +11,10 @@ readme = "README.md"
 
 [dependencies]
 clap = { version = "4.5.20", features = ["derive"] }
-xabc_lib = { version = "0.1.0", path = "../xabc_lib" }
+xabc-lib = { version = "0.1.0", path = "../xabc-lib" }
 
 [dev-dependencies]
-xabc_lib = { version = "0.1.0", path = "../xabc_lib", features = ["logging"] }
+xabc-lib = { version = "0.1.0", path = "../xabc-lib", features = ["logging"] }
 
 
 [doc]

@@ -1,5 +1,5 @@
 [workspace]
-members = ["xabc_lib", "xabc"]
+members = ["xabc-lib", "xabc"]
 resolver = "2"
 
 [workspace.package]

@@ -1,5 +1,5 @@
 [package]
-name = "xabc_lib"
+name = "xabc-lib"
 version.workspace = true
 edition.workspace = true
 repository.workspace = true
