@@ -3,7 +3,7 @@ members = ["xabc-lib", "xabc"]
 resolver = "2"
 
 [workspace.package]
-name = "xabc"
+# name = "xabc"
 version = "0.1.4"
 edition = "2021"
 repository = "https://gitee.com/kin9-0rz/rs-xabc"
